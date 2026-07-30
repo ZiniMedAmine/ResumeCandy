@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
+/**
+ * One small palette drives the whole app chrome. Components reference these
+ * semantic tokens (bg-surface, text-ink-muted, border-hairline) instead of
+ * hand-rolling zinc shades with a dark: twin for each — which keeps the UI
+ * consistent and makes dark mode fall out for free.
+ *
+ * The resume paper itself deliberately stays literal white/zinc: it is a
+ * printed document, not app chrome, and must not follow the viewer's theme.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --canvas: #f5f5f7;
+  --surface: #ffffff;
+  --sunken: #f2f2f5;
+  --hairline: rgba(9, 9, 11, 0.07);
+  --hairline-strong: rgba(9, 9, 11, 0.13);
+  --ink: #27272a;
+  --ink-muted: #6c6c78;
+  --ink-faint: #9c9ca8;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --canvas: #0a0a0b;
+    --surface: #161618;
+    --sunken: #1f1f23;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --hairline-strong: rgba(255, 255, 255, 0.15);
+    --ink: #e7e7ea;
+    --ink-muted: #a0a0ac;
+    --ink-faint: #71717c;
   }
 }
 
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Soft, low-contrast elevation — depth without visual noise. */
+  --shadow-card: 0 1px 2px rgba(9, 9, 11, 0.04), 0 1px 3px rgba(9, 9, 11, 0.05);
+  --shadow-card-hover: 0 2px 6px rgba(9, 9, 11, 0.05), 0 8px 20px rgba(9, 9, 11, 0.06);
+  --shadow-pop: 0 10px 34px rgba(9, 9, 11, 0.13), 0 2px 8px rgba(9, 9, 11, 0.07);
+  --shadow-paper: 0 1px 2px rgba(9, 9, 11, 0.1), 0 10px 30px rgba(9, 9, 11, 0.1);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Slightly open tracking at small sizes reads calmer over long sessions. */
+  letter-spacing: -0.006em;
+}
+
+/* Unobtrusive scrollbars for the multi-pane editor. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--ink-faint) 45%, transparent) transparent;
+}
+
+/* Consistent, quiet focus treatment across every interactive element. */
+:focus-visible {
+  outline: 2px solid rgba(244, 63, 94, 0.55);
+  outline-offset: 2px;
+}
+
+/*
+ * Tailwind v4's Preflight leaves buttons at their native `cursor: default` —
+ * every clickable control in the app should read as clickable.
+ */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* A quiet, consistent "press" on anything opting into it via .pressable. */
+.pressable {
+  transition-property: transform, background-color, color, border-color, box-shadow, filter;
+  transition-duration: 150ms;
+}
+.pressable:active {
+  transform: scale(0.97);
 }
