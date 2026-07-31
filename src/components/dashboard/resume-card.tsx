@@ -19,30 +19,32 @@ export function ResumeCard({ resume }: { resume: ResumeCardData }) {
     <div className="group">
       <Link
         href={`/resume/${resume.id}`}
-        className="block overflow-hidden rounded-xl bg-surface shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
+        className="block overflow-hidden rounded-2xl bg-surface shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
         style={{ aspectRatio: `${format.width} / ${format.height}` }}
         aria-label={`Open ${resume.name}`}
       >
         {empty ? (
-          <div className="flex h-full items-center justify-center text-[12px] text-ink-faint">
+          <div className="flex h-full items-center justify-center text-[15px] text-ink-faint transition-colors duration-200 group-hover:text-ink-muted">
             Empty resume
           </div>
         ) : (
-          <div className="pointer-events-none select-none">
+          // A hair of zoom on hover: enough to feel like the paper responds,
+          // small enough that the text never visibly reflows.
+          <div className="pointer-events-none origin-top select-none transition-transform duration-300 ease-[var(--ease-entrance)] group-hover:scale-[1.015]">
             <ResumePreview tree={{ roots: resume.roots }} design={resume.design} thumbnail />
           </div>
         )}
       </Link>
 
-      <div className="mt-3 flex items-start gap-2">
+      <div className="mt-4 flex items-start gap-2.5">
         <div className="min-w-0 flex-1">
           <Link
             href={`/resume/${resume.id}`}
-            className="block truncate text-[14px] font-semibold text-ink transition-colors duration-150 hover:text-rose-500 hover:underline"
+            className="block truncate text-[17.5px] font-semibold text-ink transition-colors duration-150 hover:text-rose-500 hover:underline"
           >
             {resume.name}
           </Link>
-          <p className="mt-0.5 truncate text-[12px] text-ink-faint">
+          <p className="mt-1 truncate text-[15px] text-ink-faint">
             edited {relativeTime(resume.updatedAt)} · {format.name} ·{" "}
             {resume.versionCount} version{resume.versionCount === 1 ? "" : "s"}
           </p>

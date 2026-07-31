@@ -1,6 +1,59 @@
 @import "tailwindcss";
 
 /**
+ * `dark:` follows the theme stamped on <html>, not the OS directly.
+ *
+ * Without this, Tailwind's default dark variant stays bound to
+ * prefers-color-scheme, so a user who overrides the OS would get the dark
+ * colour variables but the light `dark:` utilities — a half-themed UI.
+ * Resolving "system" to a concrete attribute up front keeps both in step.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@font-face {
+  font-family: "ResumeCandy Geist";
+  src: url("/pdf-fonts/Geist-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy Geist";
+  src: url("/pdf-fonts/Geist-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy Geist";
+  src: url("/pdf-fonts/Geist-Italic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy Source Serif";
+  src: url("/pdf-fonts/SourceSerif4-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy Source Serif";
+  src: url("/pdf-fonts/SourceSerif4-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy Source Serif";
+  src: url("/pdf-fonts/SourceSerif4-Italic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+/**
  * One small palette drives the whole app chrome. Components reference these
  * semantic tokens (bg-surface, text-ink-muted, border-hairline) instead of
  * hand-rolling zinc shades with a dark: twin for each — which keeps the UI
@@ -10,6 +63,8 @@
  * printed document, not app chrome, and must not follow the viewer's theme.
  */
 :root {
+  --font-resume-sans: "ResumeCandy Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-resume-serif: "ResumeCandy Source Serif", ui-serif, Georgia, serif;
   --canvas: #f5f5f7;
   --surface: #ffffff;
   --sunken: #f2f2f5;
@@ -18,10 +73,24 @@
   --ink: #27272a;
   --ink-muted: #6c6c78;
   --ink-faint: #9c9ca8;
+  /* The overshoot-free ease-out every entrance shares. */
+  --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+:root[data-theme="dark"] {
+  --canvas: #0a0a0b;
+  --surface: #161618;
+  --sunken: #1f1f23;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.15);
+  --ink: #e7e7ea;
+  --ink-muted: #a0a0ac;
+  --ink-faint: #71717c;
+}
+
+/* Only reached with JavaScript off, where the head script never ran. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --canvas: #0a0a0b;
     --surface: #161618;
     --sunken: #1f1f23;
@@ -43,8 +112,8 @@
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-resume-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Soft, low-contrast elevation — depth without visual noise. */
   --shadow-card: 0 1px 2px rgba(9, 9, 11, 0.04), 0 1px 3px rgba(9, 9, 11, 0.05);
@@ -56,7 +125,7 @@
 body {
   background: var(--canvas);
   color: var(--ink);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-resume-sans);
   /* Slightly open tracking at small sizes reads calmer over long sessions. */
   letter-spacing: -0.006em;
 }
@@ -93,4 +162,70 @@ button:disabled,
 }
 .pressable:active {
   transform: scale(0.97);
+}
+
+/* Text selection picks up the accent instead of the browser's default blue. */
+::selection {
+  background: rgba(244, 63, 94, 0.16);
+}
+
+/* ---------------------------------- motion --------------------------------- */
+
+/**
+ * Four entrances, no exits — things arrive, nothing lingers on its way out.
+ *
+ * All of them are short and travel a short distance, so the interface reads as
+ * responsive rather than animated: the motion is over before it asks to be
+ * watched. `--enter-delay` lets a list stagger itself with nothing but an
+ * inline style, so no animation library has to ship for it.
+ */
+@keyframes vibe-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes vibe-rise {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vibe-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vibe-lift {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.anim-fade {
+  animation: vibe-fade 160ms ease-out both;
+}
+/* List items and cards: a short rise, staggered by --enter-delay. */
+.anim-rise {
+  animation: vibe-rise 300ms var(--ease-entrance) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+/* Menus and popovers: springs out of the control that opened it. */
+.anim-pop {
+  animation: vibe-pop 130ms var(--ease-entrance) both;
+}
+/* Dialogs and toasts: arrives from below, settles. */
+.anim-lift {
+  animation: vibe-lift 220ms var(--ease-entrance) both;
+}
+
+/**
+ * Motion is decoration here — every entrance is a fade-in of something that
+ * would be there anyway — so honouring the OS switch costs nothing.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .pressable:active {
+    transform: none;
+  }
 }

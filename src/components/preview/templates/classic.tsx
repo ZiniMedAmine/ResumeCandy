@@ -1,20 +1,30 @@
 "use client";
 
+import { fontStack } from "@/lib/design";
 import type { ResolvedNode } from "@/lib/resume/types";
 import { PagedPaper, blockProps, useBlockMargins } from "../paged-paper";
 import {
-  contactEntries,
-  dateRange,
+  BulletList,
+  ContactLine,
+  DesignProvider,
+  EntryHead,
+  HeaderPhoto,
   Marked,
+  ResumeLink,
+  SectionColumns,
+  SectionHeading,
+  dateRange,
+  emFor,
   s,
   titleBlockId,
-  visibleBullets,
+  useDesignSettings,
   type TemplateProps,
 } from "../shared";
 
 /**
- * Classic — the timeless serif layout: centered header, small-caps ruled
- * section titles, dates in a right-hand column. Reads like a printed CV.
+ * Classic — the timeless serif layout: a centred header, ruled section titles
+ * and dates in a right-hand column, as it ships. Every one of those choices is
+ * a setting now, so the template supplies defaults rather than dictating.
  *
  * Pagination blocks: the header, each section heading (kept with the entry
  * that follows), each entry's title line (kept with its first bullet), and
@@ -23,46 +33,64 @@ import {
 export function ClassicTemplate({ tree, design, markCustomized }: TemplateProps) {
   const header = tree.roots.find((n) => n.kind === "header");
   const sections = tree.roots.filter((n) => n.kind === "section");
-  const fontClass = design.fontFamily === "serif" ? "font-serif" : "font-sans";
 
   return (
-    <PagedPaper design={design} fontClass={fontClass}>
-      {header && <Header node={header} markCustomized={markCustomized} />}
-      {sections.map((section) => (
-        <Section key={section.id} node={section} markCustomized={markCustomized} />
-      ))}
-    </PagedPaper>
+    <DesignProvider design={design}>
+      <PagedPaper
+        design={design}
+        footer={{ name: s(header?.data.fullName), email: s(header?.data.email) }}
+      >
+        {header && <Header node={header} markCustomized={markCustomized} />}
+        <SectionColumns
+          sections={sections}
+          renderSection={(node, { sidebar }) => (
+            <Section key={node.id} node={node} markCustomized={markCustomized} sidebar={sidebar} />
+          )}
+        />
+      </PagedPaper>
+    </DesignProvider>
   );
 }
 
 function Header({ node, markCustomized }: { node: ResolvedNode; markCustomized: boolean }) {
+  const design = useDesignSettings();
   const d = node.data;
-  const contacts = contactEntries(d);
+  const center = design.headerAlign === "center";
+
   return (
     <Marked
       node={node}
       markCustomized={markCustomized}
       blockId={node.id}
-      className="mb-[var(--sec-gap)] text-center"
+      className={`mb-[var(--sec-gap)] ${center ? "text-center" : "text-left"}`}
     >
-      <h1 className="text-[2em] font-bold leading-tight tracking-tight text-zinc-900">
-        {s(d.fullName) || "Your Name"}
-      </h1>
-      {s(d.headline) && (
-        <p className="mt-[0.1em] text-[1.08em] italic" style={{ color: "var(--accent)" }}>
-          {s(d.headline)}
-        </p>
-      )}
-      {contacts.length > 0 && (
-        <p className="mx-auto mt-[0.5em] flex flex-wrap items-center justify-center gap-x-[1.2em] gap-y-[0.2em] text-[0.85em] text-zinc-600">
-          {contacts.map(({ key, icon: Icon, value }) => (
-            <span key={key} className="inline-flex items-center gap-[0.35em]">
-              <Icon className="size-[1em] text-zinc-500" />
-              {value}
-            </span>
-          ))}
-        </p>
-      )}
+      <div className={`flex items-center gap-[1.2em] ${center ? "justify-center" : ""}`}>
+        <HeaderPhoto data={d} />
+        <div className="min-w-0">
+          <h1
+            className="font-bold leading-tight tracking-tight"
+            style={{
+              fontSize: emFor(design, design.nameSize),
+              fontFamily: design.nameFont ? fontStack(design.nameFont) : undefined,
+              color: design.accentName ? "var(--accent)" : "#18181b",
+            }}
+          >
+            {s(d.fullName) || "Your Name"}
+          </h1>
+          {s(d.headline) && (
+            <p
+              className="mt-[0.1em] italic"
+              style={{
+                fontSize: emFor(design, design.titleSize),
+                color: design.accentSubtitle ? "var(--accent)" : "#3f3f46",
+              }}
+            >
+              {s(d.headline)}
+            </p>
+          )}
+          <ContactLine data={d} />
+        </div>
+      </div>
       {s(d.summary) && (
         <p className="mt-[0.8em] text-left text-[0.95em] leading-[inherit] text-zinc-700">
           {s(d.summary)}
@@ -72,18 +100,20 @@ function Header({ node, markCustomized }: { node: ResolvedNode; markCustomized: 
   );
 }
 
-function Section({ node, markCustomized }: { node: ResolvedNode; markCustomized: boolean }) {
-  const margins = useBlockMargins();
+function Section({
+  node,
+  markCustomized,
+  sidebar,
+}: {
+  node: ResolvedNode;
+  markCustomized: boolean;
+  sidebar: boolean;
+}) {
   if (node.children.length === 0) return null;
   return (
     <Marked node={node} markCustomized={markCustomized} className="mb-[var(--sec-gap)]">
-      <h2
-        className="mb-[0.5em] border-b-[1.5px] border-zinc-800 pb-[0.15em] text-[1em] font-bold uppercase tracking-[0.06em] text-zinc-900"
-        {...blockProps(margins, titleBlockId(node.id), true)}
-      >
-        {s(node.data.title)}
-      </h2>
-      <div className="space-y-[var(--item-gap)]">
+      <SectionHeading node={node} blockId={titleBlockId(node.id)} />
+      <div className={sidebar ? "space-y-[0.8em]" : "space-y-[var(--item-gap)]"}>
         {node.children.map((child) => (
           <Item key={child.id} node={child} markCustomized={markCustomized} />
         ))}
@@ -92,36 +122,8 @@ function Section({ node, markCustomized }: { node: ResolvedNode; markCustomized:
   );
 }
 
-function Bullets({ nodes, markCustomized }: { nodes: ResolvedNode[]; markCustomized: boolean }) {
-  const margins = useBlockMargins();
-  const bullets = visibleBullets(nodes);
-  if (bullets.length === 0) return null;
-  return (
-    <ul className="mt-[0.25em] space-y-[0.15em]">
-      {bullets.map((b) => (
-        <li key={b.id} className="flex gap-[0.55em]" {...blockProps(margins, b.id)}>
-          <span className="mt-[0.62em] size-[0.22em] shrink-0 rounded-full bg-zinc-700" />
-          <Marked node={b} markCustomized={markCustomized} className="flex-1 text-[0.95em] text-zinc-700">
-            {s(b.data.text)}
-          </Marked>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Right-hand meta column: dates on top, location under. */
-function Meta({ date, location }: { date: string; location: string }) {
-  if (!date && !location) return null;
-  return (
-    <div className="shrink-0 text-right text-[0.88em] leading-snug text-zinc-600">
-      {date && <p className="tabular-nums">{date}</p>}
-      {location && <p>{location}</p>}
-    </div>
-  );
-}
-
 function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: boolean }) {
+  const design = useDesignSettings();
   const margins = useBlockMargins();
   const d = node.data;
   // The entry's title line is the block; it travels with its first bullet.
@@ -131,57 +133,46 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
     case "experience":
       return (
         <Marked node={node} markCustomized={markCustomized}>
-          <div className="flex items-start justify-between gap-[1em]" {...head}>
-            <div className="min-w-0">
-              <p className="font-bold text-zinc-900">{s(d.title) || "Role"}</p>
-              {s(d.company) && (
-                <p className="text-[0.95em] italic" style={{ color: "var(--accent)" }}>
-                  {s(d.company)}
-                </p>
-              )}
-            </div>
-            <Meta date={dateRange(d)} location={s(d.location)} />
-          </div>
-          <Bullets nodes={node.children} markCustomized={markCustomized} />
+          <EntryHead
+            title={s(d.title) || "Role"}
+            subtitle={s(d.company)}
+            date={dateRange(d, design)}
+            location={s(d.location)}
+            paging={head}
+          />
+          <BulletList nodes={node.children} markCustomized={markCustomized} />
         </Marked>
       );
 
     case "education":
       return (
         <Marked node={node} markCustomized={markCustomized}>
-          <div className="flex items-start justify-between gap-[1em]" {...head}>
-            <div className="min-w-0">
-              <p className="font-bold text-zinc-900">
-                {[s(d.degree), s(d.field)].filter(Boolean).join(" — ") || "Degree"}
-              </p>
-              {s(d.school) && (
-                <p className="text-[0.95em] italic" style={{ color: "var(--accent)" }}>
-                  {s(d.school)}
-                </p>
-              )}
-            </div>
-            <Meta date={dateRange(d)} location={s(d.location)} />
-          </div>
-          <Bullets nodes={node.children} markCustomized={markCustomized} />
+          <EntryHead
+            title={[s(d.degree), s(d.field)].filter(Boolean).join(" — ") || "Degree"}
+            subtitle={s(d.school)}
+            date={dateRange(d, design)}
+            location={s(d.location)}
+            paging={head}
+          />
+          <BulletList nodes={node.children} markCustomized={markCustomized} />
         </Marked>
       );
 
     case "project":
       return (
         <Marked node={node} markCustomized={markCustomized}>
-          <div className="flex items-start justify-between gap-[1em]" {...head}>
-            <div className="min-w-0">
-              <p>
-                <span className="font-bold text-zinc-900">{s(d.name) || "Project"}</span>
-                {s(d.url) && (
-                  <span className="ml-[0.5em] text-[0.85em] text-zinc-500">{s(d.url)}</span>
-                )}
-              </p>
-              {s(d.description) && <p className="text-[0.95em] text-zinc-700">{s(d.description)}</p>}
-            </div>
-            <Meta date={dateRange(d)} location="" />
-          </div>
-          <Bullets nodes={node.children} markCustomized={markCustomized} />
+          <EntryHead
+            title={s(d.name) || "Project"}
+            date={dateRange(d, design)}
+            paging={head}
+          />
+          {s(d.url) && (
+            <p className="text-[0.85em] text-zinc-500">
+              <ResumeLink href={s(d.url)} />
+            </p>
+          )}
+          {s(d.description) && <p className="text-[0.95em] text-zinc-700">{s(d.description)}</p>}
+          <BulletList nodes={node.children} markCustomized={markCustomized} />
         </Marked>
       );
 
@@ -189,12 +180,7 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
       const skills = node.children.filter((c) => c.kind === "skill" && s(c.data.name));
       if (!s(node.data.name) && skills.length === 0) return null;
       return (
-        <Marked
-          node={node}
-          markCustomized={markCustomized}
-          blockId={node.id}
-          className="text-[0.95em]"
-        >
+        <Marked node={node} markCustomized={markCustomized} blockId={node.id} className="text-[0.95em]">
           {s(d.name) && <span className="font-bold text-zinc-900">{s(d.name)}: </span>}
           <span className="text-zinc-700">
             {skills.map((sk, i) => (
@@ -222,7 +208,14 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
             <span className="font-bold text-zinc-900">{s(d.name)}</span>
             {s(d.issuer) && <span className="text-[0.95em] text-zinc-600"> · {s(d.issuer)}</span>}
           </p>
-          {s(d.date) && <p className="shrink-0 text-[0.88em] tabular-nums text-zinc-600">{s(d.date)}</p>}
+          {s(d.date) && (
+            <p
+              className="shrink-0 text-[0.88em] tabular-nums"
+              style={{ color: design.accentDates ? "var(--accent)" : "#52525b" }}
+            >
+              {dateRange({ startDate: d.date }, design)}
+            </p>
+          )}
         </Marked>
       );
 
@@ -246,8 +239,34 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
         </Marked>
       );
 
+    case "language":
+      return (
+        <Marked
+          node={node}
+          markCustomized={markCustomized}
+          blockId={node.id}
+          className="flex items-baseline justify-between gap-[1em] text-[0.95em]"
+        >
+          <span className="font-bold text-zinc-900">{s(d.name)}</span>
+          {s(d.level) && <span className="shrink-0 text-zinc-600">{s(d.level)}</span>}
+        </Marked>
+      );
+
+    case "text":
+      if (!s(d.text)) return null;
+      return (
+        <Marked
+          node={node}
+          markCustomized={markCustomized}
+          blockId={node.id}
+          className="text-[0.95em] leading-[inherit] text-zinc-700"
+        >
+          {s(d.text)}
+        </Marked>
+      );
+
     case "bullet":
-      return <Bullets nodes={[node]} markCustomized={markCustomized} />;
+      return <BulletList nodes={[node]} markCustomized={markCustomized} />;
 
     default:
       return null;

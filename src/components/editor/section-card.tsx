@@ -3,67 +3,49 @@
 import { useState } from "react";
 import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  AwardIcon,
-  BriefcaseIcon,
   CheckIcon,
   ChevronDownIcon,
   CopyIcon,
   DotsIcon,
   EyeOffIcon,
-  FolderIcon,
-  GradCapIcon,
+  GripIcon,
   PencilIcon,
   PlusIcon,
-  PuzzleIcon,
   TrashIcon,
   UndoIcon,
-  UsersIcon,
 } from "@/components/ui/icons";
-import { isHiddenFlag, type NodeKind, type ResolvedNode, type SectionType } from "@/lib/resume/types";
+import { sectionIcon } from "@/components/ui/section-icons";
+import { sectionPreset } from "@/lib/sections";
+import { isHiddenFlag, type ResolvedNode, type SectionType } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { useEditorUI } from "./editor-ui-context";
 import { EntryEditor } from "./entry-editor";
 import { EntryRow } from "./entry-row";
 import { HiddenGhost } from "./node-controls";
 import { ProvenanceField } from "./provenance-field";
-
-const CHILD_KIND: Record<SectionType, NodeKind> = {
-  experience: "experience",
-  education: "education",
-  projects: "project",
-  skills: "skillGroup",
-  certifications: "certification",
-  references: "reference",
-};
-
-const ADD_LABEL: Record<SectionType, string> = {
-  experience: "Add entry",
-  education: "Add entry",
-  projects: "Add project",
-  skills: "Add skill group",
-  certifications: "Add certificate",
-  references: "Add reference",
-};
-
-export const SECTION_ICONS: Record<SectionType, React.ComponentType<{ className?: string }>> = {
-  experience: BriefcaseIcon,
-  education: GradCapIcon,
-  projects: FolderIcon,
-  skills: PuzzleIcon,
-  certifications: AwardIcon,
-  references: UsersIcon,
-};
+import { dragClasses, useDragReorder, type DropEdge } from "./use-drag-reorder";
 
 /**
  * A section: a heading, a list of one-line entries, and an add button. Opening
  * an entry swaps the card into its editor so editing never happens in a
  * cramped inline strip.
  */
-export function SectionCard({ node }: { node: ResolvedNode }) {
+export function SectionCard({
+  node,
+  dragProps,
+  handleProps,
+  dragging = false,
+  edge = null,
+}: {
+  node: ResolvedNode;
+  dragProps?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean };
+  /** Arms the section drag — the card is inert until the grip is pressed. */
+  handleProps?: React.HTMLAttributes<HTMLElement>;
+  dragging?: boolean;
+  edge?: DropEdge;
+}) {
   const addNode = useResumeStore((s) => s.addNode);
-  const moveNode = useResumeStore((s) => s.moveNode);
+  const moveNodeTo = useResumeStore((s) => s.moveNodeTo);
   const setHidden = useResumeStore((s) => s.setHidden);
   const deleteNodeHard = useResumeStore((s) => s.deleteNodeHard);
   const resetScope = useResumeStore((s) => s.resetScope);
@@ -76,11 +58,13 @@ export function SectionCard({ node }: { node: ResolvedNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [editingHeading, setEditingHeading] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const entryDrag = useDragReorder(moveNodeTo);
 
   const activeVersion = versions.find((v) => v.id === activeVersionId);
   const onBase = activeVersion?.isBase === 1 || activeVersion?.isBase === true;
   const sectionType = (node.data.sectionType as SectionType) ?? "experience";
-  const Icon = SECTION_ICONS[sectionType] ?? BriefcaseIcon;
+  const preset = sectionPreset(sectionType);
+  const Icon = sectionIcon(sectionType);
 
   if (node.hidden) return <HiddenGhost node={node} />;
 
@@ -106,7 +90,7 @@ export function SectionCard({ node }: { node: ResolvedNode }) {
   // While an entry is open it owns the whole card.
   if (editingEntry) {
     return (
-      <section className="rounded-2xl bg-surface shadow-card">
+      <section className="anim-fade rounded-2xl bg-surface shadow-card">
         <EntryEditor node={editingEntry} onDone={() => setEditingEntryId(null)} />
       </section>
     );
@@ -117,8 +101,19 @@ export function SectionCard({ node }: { node: ResolvedNode }) {
   const visibleCount = node.children.filter((c) => !c.hidden).length;
 
   return (
-    <section className="group/section rounded-2xl bg-surface shadow-card transition-shadow duration-200 hover:shadow-card-hover">
+    <section
+      {...dragProps}
+      className={`group/section rounded-2xl bg-surface shadow-card transition-shadow duration-200 hover:shadow-card-hover ${dragClasses(dragging, edge)}`}
+    >
       <div className="flex items-center gap-3 px-5 py-4">
+        {/* Pressing the grip is what makes the card draggable at all. */}
+        <span
+          {...handleProps}
+          className="-ml-2 flex size-6 shrink-0 cursor-grab items-center justify-center text-ink-faint/40 transition-colors duration-150 select-none group-hover/section:text-ink-faint active:cursor-grabbing"
+          title="Drag to reorder section"
+        >
+          <GripIcon className="size-4" />
+        </span>
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sunken text-ink-muted">
           <Icon className="size-4.5" />
         </span>
@@ -163,12 +158,6 @@ export function SectionCard({ node }: { node: ResolvedNode }) {
         )}
 
         <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/section:opacity-100">
-          <button type="button" className={iconBtn} title="Move section up" onClick={() => moveNode(node.id, -1)}>
-            <ArrowUpIcon className="size-4" />
-          </button>
-          <button type="button" className={iconBtn} title="Move section down" onClick={() => moveNode(node.id, 1)}>
-            <ArrowDownIcon className="size-4" />
-          </button>
           <Menu
             align="end"
             trigger={
@@ -237,8 +226,15 @@ export function SectionCard({ node }: { node: ResolvedNode }) {
       {!collapsed && (
         <div className="border-t border-hairline px-3.5 py-3">
           <div className="divide-y divide-hairline">
-            {node.children.map((child) => (
-              <EntryRow key={child.id} node={child} onEdit={() => setEditingEntryId(child.id)} />
+            {node.children.map((child, i) => (
+              <EntryRow
+                key={child.id}
+                node={child}
+                onEdit={() => setEditingEntryId(child.id)}
+                dragProps={entryDrag.itemProps(child.id, i)}
+                dragging={entryDrag.draggingId === child.id}
+                edge={entryDrag.dropEdge(i, node.children.length)}
+              />
             ))}
           </div>
 
@@ -247,13 +243,13 @@ export function SectionCard({ node }: { node: ResolvedNode }) {
               type="button"
               onClick={() => {
                 // A new entry is empty, so open its editor straight away.
-                const id = addNode(node.id, CHILD_KIND[sectionType]);
+                const id = addNode(node.id, preset.childKind);
                 setEditingEntryId(id);
               }}
               className="pressable flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-5 py-2 text-[13px] font-semibold text-ink shadow-card transition-all duration-150 hover:border-rose-300 hover:text-rose-500"
             >
               <PlusIcon className="size-4" />
-              {ADD_LABEL[sectionType] ?? "Add entry"}
+              {preset.addLabel}
               {!onBase && (
                 <span className="text-[11px] font-normal text-ink-faint">(only in this version)</span>
               )}

@@ -30,10 +30,10 @@ export function ResumeCardActions({
         trigger={
           <button
             type="button"
-            className="pressable rounded-lg p-1.5 text-ink-faint opacity-0 transition-all duration-150 hover:bg-sunken hover:text-ink group-hover:opacity-100"
+            className="pressable rounded-lg p-2 text-ink-faint opacity-0 transition-all duration-150 hover:bg-sunken hover:text-ink group-hover:opacity-100"
             aria-label={`Options for ${name}`}
           >
-            <DotsIcon className="size-4" />
+            <DotsIcon className="size-5" />
           </button>
         }
       >

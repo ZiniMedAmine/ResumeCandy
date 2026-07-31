@@ -20,6 +20,7 @@ function icon(path: React.ReactNode) {
 }
 
 export const PlusIcon = icon(<path d="M12 5v14M5 12h14" />);
+export const MinusIcon = icon(<path d="M5 12h14" />);
 export const XIcon = icon(<path d="M18 6 6 18M6 6l12 12" />);
 export const CheckIcon = icon(<path d="M20 6 9 17l-5-5" />);
 export const ChevronDownIcon = icon(<path d="m6 9 6 6 6-6" />);
@@ -189,6 +190,55 @@ export const UsersIcon = icon(
     <circle cx="9" cy="8" r="3.5" />
     <path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5" />
     <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M17.5 14.7c2.3.6 4 2.4 4 5.3" />
+  </>,
+);
+export const SignOutIcon = icon(
+  <>
+    <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+    <path d="m16 16 4-4-4-4M20 12H9" />
+  </>,
+);
+export const SunIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+  </>,
+);
+export const MoonIcon = icon(<path d="M20 14.5A8.2 8.2 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" />);
+export const BookIcon = icon(
+  <>
+    <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5v-15Z" />
+    <path d="M4 19.5A1.5 1.5 0 0 1 5.5 18H19v3H5.5A1.5 1.5 0 0 1 4 19.5Z" />
+  </>,
+);
+export const BookOpenIcon = icon(
+  <>
+    <path d="M12 6.5C10.5 5 8.5 4.5 6 4.5H3v14h3c2.5 0 4.5.5 6 2" />
+    <path d="M12 6.5C13.5 5 15.5 4.5 18 4.5h3v14h-3c-2.5 0-4.5.5-6 2" />
+    <path d="M12 6.5v14" />
+  </>,
+);
+export const BuildingIcon = icon(
+  <>
+    <path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16" />
+    <path d="M15 9h3a2 2 0 0 1 2 2v10M2 21h20" />
+    <path d="M8 7h3M8 11h3M8 15h3" />
+  </>,
+);
+export const HeartIcon = icon(
+  <path d="M12 20s-7-4.4-7-9.3A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7 3.1c0 4.9-7 9.3-7 9.3Z" />,
+);
+export const MedalIcon = icon(
+  <>
+    <path d="M7.5 3 10 8m6.5-5L14 8" />
+    <circle cx="12" cy="14.5" r="5.5" />
+    <path d="m12 12 .9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2L9 14.2l2-.3.9-1.9Z" />
+  </>,
+);
+export const SignatureIcon = icon(
+  <>
+    <path d="M3 17c3.5 0 4.5-11 7-11s1.5 9 4 9c1.5 0 2-2 3.5-2" />
+    <path d="M3 21h18" />
   </>,
 );
 export const PaletteIcon = icon(

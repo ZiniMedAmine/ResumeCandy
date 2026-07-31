@@ -3,6 +3,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, tables } from "@/db";
 import {
+  assertOwnsResume,
   collectSubtreeIds,
   deleteSubtree,
   getNodeOrThrow,
@@ -74,6 +75,7 @@ export async function saveFieldEdit(input: {
   field: string;
   value: unknown;
 }) {
+  await assertOwnsResume(input.resumeId);
   const version = getVersionOrThrow(input.versionId);
   const node = getNodeOrThrow(input.nodeId);
   if (version.resumeId !== input.resumeId || node.resumeId !== input.resumeId) {
@@ -119,6 +121,7 @@ export async function saveHidden(input: {
   nodeId: string;
   hidden: boolean;
 }) {
+  await assertOwnsResume(input.resumeId);
   const version = getVersionOrThrow(input.versionId);
   const node = getNodeOrThrow(input.nodeId);
   if (node.ownerVersionId) throw new Error("Local nodes are deleted, not hidden");
@@ -143,6 +146,7 @@ export async function saveRank(input: {
   nodeId: string;
   rank: string;
 }) {
+  await assertOwnsResume(input.resumeId);
   const version = getVersionOrThrow(input.versionId);
   const node = getNodeOrThrow(input.nodeId);
   const editsBase = version.isBase === 1 || node.ownerVersionId === version.id;
@@ -174,6 +178,7 @@ export async function createNode(input: {
   versionId: string;
   node: { id: string; parentId: string | null; kind: string; rank: string; data: Record<string, unknown> };
 }) {
+  await assertOwnsResume(input.resumeId);
   const version = getVersionOrThrow(input.versionId);
   db.insert(nodes)
     .values({
@@ -200,6 +205,7 @@ export async function createNode(input: {
 
 /** Hard-delete a subtree (base-version deletes and local-node deletes). */
 export async function deleteNode(input: { resumeId: string; versionId: string; nodeId: string }) {
+  await assertOwnsResume(input.resumeId);
   const version = getVersionOrThrow(input.versionId);
   const node = getNodeOrThrow(input.nodeId);
   if (node.ownerVersionId === null && version.isBase !== 1) {
@@ -220,6 +226,7 @@ export async function deleteNode(input: { resumeId: string; versionId: string; n
 
 /** Undo helper: re-insert previously deleted nodes verbatim. */
 export async function restoreNodes(input: { resumeId: string; nodes: ResumeNode[] }) {
+  await assertOwnsResume(input.resumeId);
   if (input.nodes.length === 0) return { ok: true as const };
   db.insert(nodes)
     .values(
@@ -240,6 +247,7 @@ export async function restoreNodes(input: { resumeId: string; nodes: ResumeNode[
 
 /** Undo helper: put back previously removed override rows. */
 export async function restoreOverrides(input: { resumeId: string; overrides: NodeOverride[] }) {
+  await assertOwnsResume(input.resumeId);
   for (const o of input.overrides) {
     writeOverride(o.versionId, o.nodeId, o);
   }
@@ -248,6 +256,7 @@ export async function restoreOverrides(input: { resumeId: string; overrides: Nod
 }
 
 export async function resetField(input: { resumeId: string; versionId: string; nodeId: string; field: string }) {
+  await assertOwnsResume(input.resumeId);
   const existing = getOverride(input.versionId, input.nodeId);
   writeOverride(input.versionId, input.nodeId, withFieldReset(existing, input.field));
   logEdit({
@@ -264,6 +273,7 @@ export async function resetField(input: { resumeId: string; versionId: string; n
 
 /** Reset a whole node in one version: drop its override row entirely. */
 export async function resetNode(input: { resumeId: string; versionId: string; nodeId: string }) {
+  await assertOwnsResume(input.resumeId);
   db.delete(nodeOverrides)
     .where(and(eq(nodeOverrides.versionId, input.versionId), eq(nodeOverrides.nodeId, input.nodeId)))
     .run();
@@ -284,6 +294,7 @@ export async function resetNode(input: { resumeId: string; versionId: string; no
  * parent: deletes the version's overrides in scope and its local nodes.
  */
 export async function resetScope(input: { resumeId: string; versionId: string; sectionId: string | null }) {
+  await assertOwnsResume(input.resumeId);
   const version = getVersionOrThrow(input.versionId);
   const scopeIds = input.sectionId ? collectSubtreeIds(input.resumeId, input.sectionId) : null;
 
@@ -318,6 +329,7 @@ export async function resetScope(input: { resumeId: string; versionId: string; s
  * override for it is dropped.
  */
 export async function pushFieldToBase(input: { resumeId: string; versionId: string; nodeId: string; field: string }) {
+  await assertOwnsResume(input.resumeId);
   const node = getNodeOrThrow(input.nodeId);
   const existing = getOverride(input.versionId, input.nodeId);
   if (!existing?.patch || !(input.field in existing.patch)) {
@@ -348,6 +360,7 @@ export async function pushFieldToBase(input: { resumeId: string; versionId: stri
  * so does its local subtree.
  */
 export async function promoteNodeToBase(input: { resumeId: string; versionId: string; nodeId: string }) {
+  await assertOwnsResume(input.resumeId);
   const node = getNodeOrThrow(input.nodeId);
   if (node.ownerVersionId !== input.versionId) throw new Error("Node is not local to this version");
 
@@ -382,6 +395,7 @@ export async function copyOverrides(input: {
   toVersionIds: string[];
   nodeIds: string[];
 }) {
+  await assertOwnsResume(input.resumeId);
   const source = getVersionOrThrow(input.fromVersionId);
   for (const targetId of input.toVersionIds) {
     if (targetId === source.id) continue;
@@ -406,6 +420,7 @@ export async function copyFieldValue(input: {
   value: unknown;
   toVersionIds: string[];
 }) {
+  await assertOwnsResume(input.resumeId);
   const node = getNodeOrThrow(input.nodeId);
   for (const targetId of input.toVersionIds) {
     const target = getVersionOrThrow(targetId);
@@ -433,6 +448,7 @@ export async function insertLocalNodes(input: {
   versionId: string;
   nodes: { id: string; parentId: string | null; kind: string; rank: string; data: Record<string, unknown> }[];
 }) {
+  await assertOwnsResume(input.resumeId);
   const version = getVersionOrThrow(input.versionId);
   if (input.nodes.length === 0) return { ok: true as const };
   db.insert(nodes)

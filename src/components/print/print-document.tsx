@@ -68,7 +68,7 @@ export function PrintDocument({
 
       window.print();
       // Let whoever opened this frame tidy up once the dialog is dismissed.
-      window.parent?.postMessage({ type: "vibecv:printed" }, window.location.origin);
+      window.parent?.postMessage({ type: "resumecandy:printed" }, window.location.origin);
     };
 
     void run();

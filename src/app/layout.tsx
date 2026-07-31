@@ -1,19 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { InlineScript } from "@/components/ui/inline-script";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "VibeCV",
+  title: "ResumeCandy",
   description: "One resume per career — unlimited tailored versions per resume.",
 };
 
@@ -23,10 +14,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    // The server has no way to know the saved theme, so it renders light and
+    // the head script corrects <html> before first paint. suppressHydrationWarning
+    // tells React to keep that corrected attribute instead of its own output.
+    <html lang="en" data-theme="light" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <InlineScript html={THEME_INIT_SCRIPT} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

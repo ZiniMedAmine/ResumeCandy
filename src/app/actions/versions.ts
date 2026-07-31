@@ -2,10 +2,21 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { db, tables } from "@/db";
-import { getVersionOrThrow, touchResume } from "@/lib/server/mutations";
+import { listVersionTree, type VersionTreeResume } from "@/lib/data";
+import {
+  assertOwnsResume,
+  assertOwnsVersion,
+  getVersionOrThrow,
+  touchResume,
+} from "@/lib/server/mutations";
 import type { NodeOverride } from "@/lib/resume/types";
 
 const { nodeOverrides, nodes, versions } = tables;
+
+/** The whole shelf for the switcher: every resume with its live versions. */
+export async function fetchVersionTree(): Promise<VersionTreeResume[]> {
+  return await listVersionTree();
+}
 
 /**
  * Create a version. An empty overlay when created from the Default;
@@ -23,6 +34,7 @@ export async function createVersion(input: {
   overrides: NodeOverride[];
   localNodes: { id: string; parentId: string | null; kind: string; rank: string; data: Record<string, unknown> }[];
 }) {
+  await assertOwnsResume(input.resumeId);
   db.transaction((tx) => {
     tx.insert(versions)
       .values({
@@ -70,6 +82,7 @@ export async function createVersion(input: {
 }
 
 export async function renameVersion(input: { resumeId: string; versionId: string; name: string }) {
+  await assertOwnsResume(input.resumeId);
   const name = input.name.trim();
   if (!name) throw new Error("Version name cannot be empty");
   db.update(versions)
@@ -81,6 +94,7 @@ export async function renameVersion(input: { resumeId: string; versionId: string
 }
 
 export async function setVersionTags(input: { resumeId: string; versionId: string; tags: string[] }) {
+  await assertOwnsResume(input.resumeId);
   db.update(versions)
     .set({ tags: input.tags, updatedAt: Date.now() })
     .where(eq(versions.id, input.versionId))
@@ -95,6 +109,7 @@ export async function setVersionSettings(input: {
   versionId: string;
   patch: Record<string, unknown>;
 }) {
+  await assertOwnsResume(input.resumeId);
   const v = getVersionOrThrow(input.versionId);
   const merged = { ...(v.settingsPatch ?? {}), ...input.patch };
   for (const key of Object.keys(merged)) {
@@ -109,6 +124,7 @@ export async function setVersionSettings(input: {
 }
 
 export async function archiveVersion(input: { resumeId: string; versionId: string; archived: boolean }) {
+  await assertOwnsResume(input.resumeId);
   const v = getVersionOrThrow(input.versionId);
   if (v.isBase === 1 && input.archived) throw new Error("The Default version cannot be archived");
   db.update(versions)
@@ -121,6 +137,7 @@ export async function archiveVersion(input: { resumeId: string; versionId: strin
 
 /** Soft delete → Trash (30-day retention, purged on load). */
 export async function trashVersion(input: { resumeId: string; versionId: string; trashed: boolean }) {
+  await assertOwnsResume(input.resumeId);
   const v = getVersionOrThrow(input.versionId);
   if (v.isBase === 1 && input.trashed) throw new Error("The Default version cannot be deleted");
   db.update(versions)
@@ -133,6 +150,7 @@ export async function trashVersion(input: { resumeId: string; versionId: string;
 
 /** Permanent delete: version row (overrides cascade) plus its local nodes. */
 export async function hardDeleteVersion(input: { resumeId: string; versionId: string }) {
+  await assertOwnsResume(input.resumeId);
   const v = getVersionOrThrow(input.versionId);
   if (v.isBase === 1) throw new Error("The Default version cannot be deleted");
   db.transaction((tx) => {
@@ -147,6 +165,7 @@ export async function hardDeleteVersion(input: { resumeId: string; versionId: st
 
 /** Recents bookkeeping for the switcher. */
 export async function touchVersionOpened(input: { versionId: string }) {
+  await assertOwnsVersion(input.versionId);
   db.update(versions)
     .set({ lastOpenedAt: Date.now() })
     .where(eq(versions.id, input.versionId))
@@ -160,6 +179,7 @@ export async function bulkVersionOp(input: {
   versionIds: string[];
   op: "archive" | "unarchive" | "trash" | "restore";
 }) {
+  await assertOwnsResume(input.resumeId);
   const rows = db.select().from(versions).where(inArray(versions.id, input.versionIds)).all();
   const ids = rows.filter((r) => r.isBase !== 1).map((r) => r.id);
   if (ids.length === 0) return { ok: true as const };

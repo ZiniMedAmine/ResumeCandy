@@ -21,15 +21,14 @@ import {
   LayersIcon,
   PaletteIcon,
   PlusIcon,
-  SparkleIcon,
 } from "@/components/ui/icons";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ToastHost } from "@/components/ui/toast-host";
-import { printResumeVersion } from "@/lib/print-resume";
+import { downloadResumePdf } from "@/lib/pdf/resume-pdf";
 import { CopyCustomizationsDialog, CopyFieldDialog } from "@/components/versions/copy-dialog";
 import { CustomizationsPanel } from "@/components/versions/customizations-panel";
 import { NewVersionDialog } from "@/components/versions/new-version-dialog";
 import { VersionManager } from "@/components/versions/version-manager";
-import { VersionRail } from "@/components/versions/version-rail";
 import { VersionSwitcher } from "@/components/versions/version-switcher";
 import {
   useCustomizationCount,
@@ -42,37 +41,73 @@ import {
 
 function SaveIndicator() {
   const pending = useResumeStore((s) => s.pendingSaves);
+  const saving = pending > 0;
   return (
     <span
-      className={`flex items-center gap-1.5 text-[11.5px] ${pending > 0 ? "text-ink-faint" : "text-ink-faint"}`}
-      title={pending > 0 ? "Saving…" : "All changes saved"}
+      className="flex items-center gap-1.5 text-[11.5px] text-ink-faint"
+      title={saving ? "Saving…" : "All changes saved"}
     >
-      {pending > 0 ? (
-        <CloudSyncIcon className="size-4 animate-pulse" />
+      {/* Swapping the element is what replays the entrance, so every save ends
+          on a small green beat instead of a silent icon change. */}
+      {saving ? (
+        <CloudSyncIcon key="saving" className="anim-fade size-4 animate-pulse" />
       ) : (
-        <CloudCheckIcon className="size-4 text-emerald-500/70" />
+        <CloudCheckIcon key="saved" className="anim-pop size-4 text-emerald-500/70" />
       )}
-      <span className="hidden xl:inline">{pending > 0 ? "Saving…" : "Saved"}</span>
+      <span className="hidden xl:inline">{saving ? "Saving…" : "Saved"}</span>
     </span>
   );
 }
 
-function TabButton({ tab, label, icon }: { tab: EditorTab; label: string; icon: React.ReactNode }) {
-  const active = useResumeStore((s) => s.tab) === tab;
+const TABS: { id: EditorTab; label: string; icon: React.ReactNode }[] = [
+  { id: "content", label: "Content", icon: <FileIcon /> },
+  { id: "customize", label: "Customize", icon: <PaletteIcon /> },
+];
+
+/**
+ * The primary mode switch. One pill slides between the tabs rather than two
+ * pills blinking on and off — the movement is what tells you the two views are
+ * the same surface seen two ways.
+ */
+function TabSwitch() {
+  const tab = useResumeStore((s) => s.tab);
   const setTab = useResumeStore((s) => s.setTab);
+  const index = Math.max(0, TABS.findIndex((t) => t.id === tab));
+
   return (
-    <button
-      type="button"
-      onClick={() => setTab(tab)}
-      className={`pressable flex items-center gap-2 rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
-        active
-          ? "bg-surface text-ink shadow-card"
-          : "text-ink-muted hover:text-ink"
-      }`}
+    <nav
+      className="absolute left-1/2 grid -translate-x-1/2 grid-cols-2 rounded-xl bg-sunken p-1"
+      role="tablist"
     >
-      <span className={`[&>svg]:size-4 ${active ? "text-rose-500" : "text-ink-faint"}`}>{icon}</span>
-      {label}
-    </button>
+      {/* Equal columns are what let the pill travel exactly 100% of itself. */}
+      <span
+        aria-hidden
+        className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-surface shadow-card transition-transform duration-300 ease-[var(--ease-entrance)]"
+        style={{ transform: `translateX(${index * 100}%)` }}
+      />
+      {TABS.map((t) => {
+        const active = t.id === tab;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => setTab(t.id)}
+            className={`relative z-10 flex items-center justify-center gap-2 rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors duration-200 ${
+              active ? "text-ink" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            <span
+              className={`transition-colors duration-200 [&>svg]:size-4 ${active ? "text-rose-500" : "text-ink-faint"}`}
+            >
+              {t.icon}
+            </span>
+            {t.label}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -101,12 +136,35 @@ function IconButton({
 
 function TopBar({ ui }: { ui: EditorUI }) {
   const resumeName = useResumeStore((s) => s.resumeName);
-  const resumeId = useResumeStore((s) => s.resumeId);
   const versions = useResumeStore((s) => s.versions);
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
   const activeVersion = versions.find((v) => v.id === activeVersionId);
   const isBase = activeVersion?.isBase === 1 || activeVersion?.isBase === true;
   const count = useCustomizationCount(activeVersionId);
+  const renderTree = useRenderTree();
+  const { design } = useDesign();
+  const toast = useResumeStore((s) => s.toast);
+  const [downloading, setDownloading] = useState(false);
+
+  const download = async () => {
+    if (!activeVersion || downloading) return;
+    setDownloading(true);
+    try {
+      await downloadResumePdf({
+        tree: renderTree,
+        design,
+        resumeName,
+        versionName: activeVersion.name,
+        isBaseVersion: isBase,
+      });
+      toast({ message: "PDF download started", kind: "success" });
+    } catch (error) {
+      console.error(error);
+      toast({ message: "Could not create the PDF. Please try again.", kind: "error" });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <header className="relative z-20 flex h-14 shrink-0 items-center gap-2 border-b border-hairline bg-surface px-4">
@@ -118,11 +176,7 @@ function TopBar({ ui }: { ui: EditorUI }) {
         <span className="max-w-40 truncate">{resumeName}</span>
       </Link>
 
-      {/* Center tabs — the primary mode switch. */}
-      <nav className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl bg-sunken p-1">
-        <TabButton tab="content" label="Content" icon={<FileIcon />} />
-        <TabButton tab="customize" label="Customize" icon={<PaletteIcon />} />
-      </nav>
+      <TabSwitch />
 
       <div className="flex-1" />
 
@@ -152,21 +206,20 @@ function TopBar({ ui }: { ui: EditorUI }) {
 
       <div className="mx-0.5 h-6 w-px bg-hairline" />
 
-      <IconButton onClick={ui.openCustomizations} title="Differences from the Default">
-        <SparkleIcon />
-      </IconButton>
       <IconButton onClick={ui.openManager} title="Manage versions">
         <LayersIcon />
       </IconButton>
+      <ThemeToggle />
 
       <button
         type="button"
-        onClick={() => printResumeVersion(resumeId, activeVersionId)}
-        className="pressable ml-1 flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 py-2 text-[12.5px] font-semibold text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong"
+        onClick={download}
+        disabled={downloading}
+        className="pressable ml-1 flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 py-2 text-[12.5px] font-semibold text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong disabled:opacity-60"
         title={`Download ${activeVersion?.name} as PDF`}
       >
         <DownloadIcon className="size-3.5 text-ink-faint" />
-        Download
+        {downloading ? "Preparing PDF…" : "Download"}
       </button>
 
       <button
@@ -225,7 +278,6 @@ export function EditorShell() {
       <div className="flex h-dvh flex-col bg-canvas">
         <TopBar ui={ui} />
         <div className="flex min-h-0 flex-1">
-          <VersionRail />
           <MainAndPreview tab={tab} />
           {customizationsOpen && <CustomizationsPanel open onClose={() => setCustomizationsOpen(false)} />}
         </div>
@@ -270,8 +322,8 @@ function MainAndPreview({ tab }: { tab: EditorTab }) {
 
   return (
     <>
-      <div className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto max-w-2xl">
+      <div className="min-w-0 flex-1 overflow-y-auto px-8 py-6">
+        <div className="mx-auto max-w-3xl">
           {tab === "customize" ? <CustomizePanel /> : <EditorPanels tree={editorTree} />}
         </div>
       </div>

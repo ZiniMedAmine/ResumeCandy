@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import { redirect } from "next/navigation";
 import { db, tables } from "@/db";
 import { getCollection } from "@/lib/data";
+import { assertOwnsResume } from "@/lib/server/mutations";
 import { TEMPLATES, type TemplateId } from "@/lib/design";
 import { ranksBetween } from "@/lib/resume/rank";
 
@@ -30,7 +31,7 @@ export async function createResume(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim() || "Untitled resume";
   const requested = String(formData.get("template") ?? "");
   const template = TEMPLATES.find((t) => t.id === requested)?.id as TemplateId | undefined;
-  const collection = getCollection();
+  const collection = await getCollection();
   const resumeId = nanoid();
   const versionId = nanoid();
 
@@ -116,6 +117,7 @@ export async function setResumeSettings(input: {
   resumeId: string;
   patch: Record<string, unknown>;
 }) {
+  await assertOwnsResume(input.resumeId);
   const resume = db.select().from(resumes).where(eq(resumes.id, input.resumeId)).all()[0];
   if (!resume) throw new Error("Resume not found");
   const merged = { ...(resume.settings ?? {}), ...input.patch };
@@ -130,6 +132,7 @@ export async function setResumeSettings(input: {
 }
 
 export async function renameResume(input: { resumeId: string; name: string }) {
+  await assertOwnsResume(input.resumeId);
   const name = input.name.trim();
   if (!name) throw new Error("Resume name cannot be empty");
   db.update(resumes)
@@ -141,6 +144,7 @@ export async function renameResume(input: { resumeId: string; name: string }) {
 
 /** Deletes the resume with all versions, nodes and overrides (FK cascade). */
 export async function deleteResume(input: { resumeId: string }) {
+  await assertOwnsResume(input.resumeId);
   db.delete(resumes).where(eq(resumes.id, input.resumeId)).run();
   return { ok: true as const };
 }

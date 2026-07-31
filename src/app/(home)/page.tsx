@@ -1,25 +1,32 @@
 import { NewResumeTile } from "@/components/dashboard/new-resume-tile";
 import { ResumeCard } from "@/components/dashboard/resume-card";
 import { listResumeCards } from "@/lib/data";
+import { enterDelay } from "@/lib/motion";
 
 export const dynamic = "force-dynamic";
 
-export default function ResumesPage() {
-  const resumes = listResumeCards();
+export default async function ResumesPage() {
+  const resumes = await listResumeCards();
 
   return (
-    <div className="mx-auto max-w-5xl px-8 py-10">
-      <header className="mb-9">
-        <h1 className="text-[26px] font-bold tracking-tight text-ink">My resumes</h1>
-        <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-muted">
+    <div className="mx-auto max-w-7xl px-10 py-12">
+      <header className="anim-rise mb-11">
+        <h1 className="text-[32px] font-bold tracking-tight text-ink">My resumes</h1>
+        <p className="mt-2 text-[17px] leading-relaxed text-ink-muted">
           One resume per career, with unlimited tailored versions inside each.
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3">
-        <NewResumeTile />
-        {resumes.map((resume) => (
-          <ResumeCard key={resume.id} resume={resume} />
+      {/* The grid deals itself in, ~40ms apart, so the page lands instead of
+          appearing. Capped so a long shelf never feels like it is loading. */}
+      <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
+        <div className="anim-rise" style={enterDelay(0)}>
+          <NewResumeTile />
+        </div>
+        {resumes.map((resume, i) => (
+          <div key={resume.id} className="anim-rise" style={enterDelay(i + 1)}>
+            <ResumeCard resume={resume} />
+          </div>
         ))}
       </div>
     </div>

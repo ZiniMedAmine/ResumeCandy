@@ -4,6 +4,7 @@ import {
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { nanoid } from "nanoid";
 
@@ -13,15 +14,54 @@ import { nanoid } from "nanoid";
  */
 const now = () => Date.now();
 
-export const collections = sqliteTable("collections", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  // Auth-ready: every collection belongs to a user. Dev builds seed a single
-  // "dev" user and every query is scoped to their sole collection.
-  userId: text("user_id").notNull(),
-  createdAt: integer("created_at").notNull().$defaultFn(now),
-});
+export const users = sqliteTable(
+  "users",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    // Stored lower-cased and trimmed; the unique index is what enforces
+    // "one account per address" rather than a read-then-write race.
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    // scrypt, as "scrypt$N$r$p$salt$hash" — never a reversible encoding.
+    passwordHash: text("password_hash").notNull(),
+    createdAt: integer("created_at").notNull().$defaultFn(now),
+  },
+  (t) => [uniqueIndex("users_email_idx").on(t.email)],
+);
+
+/**
+ * Database-backed sessions: the browser holds an opaque random token, and
+ * only its SHA-256 hash is stored here. A leaked database therefore cannot be
+ * replayed as a login, and revoking a session is a single DELETE.
+ */
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    // SHA-256 of the token the cookie carries — never the token itself.
+    tokenHash: text("token_hash").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: integer("expires_at").notNull(),
+    createdAt: integer("created_at").notNull().$defaultFn(now),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+export const collections = sqliteTable(
+  "collections",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    // Every collection belongs to a user; all resume queries scope through it.
+    userId: text("user_id").notNull(),
+    createdAt: integer("created_at").notNull().$defaultFn(now),
+  },
+  (t) => [index("collections_user_idx").on(t.userId)],
+);
 
 export const resumes = sqliteTable(
   "resumes",
@@ -165,6 +205,8 @@ export const edits = sqliteTable(
   (t) => [index("edits_resume_idx").on(t.resumeId, t.at)],
 );
 
+export type UserRow = typeof users.$inferSelect;
+export type SessionRow = typeof sessions.$inferSelect;
 export type CollectionRow = typeof collections.$inferSelect;
 export type ResumeRow = typeof resumes.$inferSelect;
 export type NodeRow = typeof nodes.$inferSelect;

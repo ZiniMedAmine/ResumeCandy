@@ -52,8 +52,8 @@ export function Menu({
       {open && (
         <MenuContext.Provider value={{ close: () => setOpen(false) }}>
           <div
-            className={`absolute top-full z-40 mt-1.5 min-w-52 overflow-hidden rounded-xl border border-hairline bg-surface p-1.5 shadow-pop ${
-              align === "end" ? "right-0" : "left-0"
+            className={`anim-pop absolute top-full z-40 mt-1.5 min-w-52 overflow-hidden rounded-xl border border-hairline bg-surface p-1.5 shadow-pop ${
+              align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left"
             }`}
             role="menu"
           >

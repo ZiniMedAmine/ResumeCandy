@@ -1,10 +1,42 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, tables } from "@/db";
+import { requireUser } from "@/lib/auth/dal";
 
-const { edits, nodes, resumes, versions } = tables;
+const { collections, edits, nodes, resumes, versions } = tables;
 
 const EDIT_LOG_LIMIT = 500;
+
+/**
+ * Asserts the signed-in user owns this resume, and fails identically whether
+ * it belongs to someone else or does not exist — a distinct "forbidden" would
+ * confirm which ids are real.
+ *
+ * Server Actions are public endpoints: the client calling them is not evidence
+ * of anything, so every mutation entry point runs this before touching a row.
+ */
+export async function assertOwnsResume(resumeId: string): Promise<void> {
+  const user = await requireUser();
+  const row = db
+    .select({ id: resumes.id })
+    .from(resumes)
+    .innerJoin(collections, eq(resumes.collectionId, collections.id))
+    .where(and(eq(resumes.id, resumeId), eq(collections.userId, user.id)))
+    .all()[0];
+  if (!row) throw new Error("Resume not found");
+}
+
+/** Same guarantee, addressed by version — resolves the resume, then checks it. */
+export async function assertOwnsVersion(versionId: string): Promise<string> {
+  const version = db
+    .select({ resumeId: versions.resumeId })
+    .from(versions)
+    .where(eq(versions.id, versionId))
+    .all()[0];
+  if (!version) throw new Error("Version not found");
+  await assertOwnsResume(version.resumeId);
+  return version.resumeId;
+}
 
 export function getVersionOrThrow(versionId: string) {
   const v = db.select().from(versions).where(eq(versions.id, versionId)).all()[0];

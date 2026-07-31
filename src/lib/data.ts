@@ -1,6 +1,8 @@
 import { and, asc, count, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { db, tables } from "@/db";
 import { ensureSeeded } from "@/db/seed";
+import { requireUser } from "./auth/dal";
 import { resolveDesign, type DesignSettings } from "./design";
 import type { ResumeListItem, ResumePayload } from "./payload";
 import { resolveVersion } from "./resume/resolve";
@@ -10,16 +12,33 @@ const { collections, nodeOverrides, nodes, resumes, versions } = tables;
 
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Dev stand-in for auth: the single seeded collection. */
-export function getCollection() {
+/**
+ * The signed-in user's collection — the scope every read below is filtered by.
+ *
+ * Created on demand rather than at signup alone, so an account that predates a
+ * schema change, or one whose collection was removed, still lands somewhere
+ * valid instead of throwing. `requireUser` redirects anonymous callers, which
+ * is what makes every function built on this one safe by construction.
+ */
+export async function getCollection() {
   ensureSeeded();
-  const row = db.select().from(collections).limit(1).all()[0];
-  if (!row) throw new Error("No collection found after seeding");
-  return row;
+  const user = await requireUser();
+
+  const existing = db
+    .select()
+    .from(collections)
+    .where(eq(collections.userId, user.id))
+    .limit(1)
+    .all()[0];
+  if (existing) return existing;
+
+  const id = nanoid();
+  db.insert(collections).values({ id, userId: user.id }).run();
+  return db.select().from(collections).where(eq(collections.id, id)).all()[0];
 }
 
-export function listResumes(): ResumeListItem[] {
-  const collection = getCollection();
+export async function listResumes(): Promise<ResumeListItem[]> {
+  const collection = await getCollection();
   const rows = db
     .select({
       id: resumes.id,
@@ -47,6 +66,83 @@ export function listResumes(): ResumeListItem[] {
   }));
 }
 
+export interface VersionTreeVersion {
+  id: string;
+  name: string;
+  isBase: number | boolean;
+  tags: string[];
+  archivedAt: number | null;
+  lastOpenedAt: number | null;
+  createdAt: number;
+  /** Which version this one was branched from — the lineage the tree draws. */
+  createdFromVersionId: string | null;
+}
+
+export interface VersionTreeResume {
+  id: string;
+  name: string;
+  updatedAt: number;
+  versions: VersionTreeVersion[];
+}
+
+/**
+ * Every resume in the collection with its live versions — the whole shelf, for
+ * the switcher's tree. Trashed versions are excluded; archived ones are kept
+ * so a version never silently disappears from the place you go to find it.
+ */
+export async function listVersionTree(): Promise<VersionTreeResume[]> {
+  const collection = await getCollection();
+  const resumeRows = db
+    .select({ id: resumes.id, name: resumes.name, updatedAt: resumes.updatedAt })
+    .from(resumes)
+    .where(eq(resumes.collectionId, collection.id))
+    .orderBy(desc(resumes.updatedAt))
+    .all();
+  if (resumeRows.length === 0) return [];
+
+  const versionRows = db
+    .select()
+    .from(versions)
+    .where(
+      and(
+        inArray(
+          versions.resumeId,
+          resumeRows.map((r) => r.id),
+        ),
+        isNull(versions.deletedAt),
+      ),
+    )
+    .all();
+
+  const byResume = new Map<string, VersionTreeVersion[]>();
+  for (const v of versionRows) {
+    const list = byResume.get(v.resumeId) ?? [];
+    list.push({
+      id: v.id,
+      name: v.name,
+      isBase: v.isBase,
+      tags: v.tags ?? [],
+      archivedAt: v.archivedAt,
+      lastOpenedAt: v.lastOpenedAt,
+      createdAt: v.createdAt,
+      createdFromVersionId: v.createdFromVersionId,
+    });
+    byResume.set(v.resumeId, list);
+  }
+
+  return resumeRows.map((resume) => ({
+    ...resume,
+    versions: (byResume.get(resume.id) ?? []).sort((a, b) => {
+      // Default first, then archived last, then most recently opened.
+      const aBase = a.isBase === 1 || a.isBase === true ? 1 : 0;
+      const bBase = b.isBase === 1 || b.isBase === true ? 1 : 0;
+      if (aBase !== bBase) return bBase - aBase;
+      if (!!a.archivedAt !== !!b.archivedAt) return a.archivedAt ? 1 : -1;
+      return (b.lastOpenedAt ?? b.createdAt) - (a.lastOpenedAt ?? a.createdAt);
+    }),
+  }));
+}
+
 export interface ResumeCardData extends ResumeListItem {
   /** Effective design of the Default version — drives the thumbnail. */
   design: DesignSettings;
@@ -60,8 +156,8 @@ export interface ResumeCardData extends ResumeListItem {
  * The dashboard grid: every resume plus enough of its Default version to
  * render a real thumbnail of page one.
  */
-export function listResumeCards(): ResumeCardData[] {
-  const base = listResumes();
+export async function listResumeCards(): Promise<ResumeCardData[]> {
+  const base = await listResumes();
   return base.map((resume) => {
     const row = db.select().from(resumes).where(eq(resumes.id, resume.id)).all()[0];
     const baseVersion = db
@@ -108,8 +204,9 @@ export function listResumeCards(): ResumeCardData[] {
 }
 
 /** Real numbers for the account page — no invented plan or billing state. */
-export function accountSummary() {
-  const collection = getCollection();
+export async function accountSummary() {
+  const user = await requireUser();
+  const collection = await getCollection();
   const [{ value: resumeCount }] = db
     .select({ value: count() })
     .from(resumes)
@@ -121,8 +218,10 @@ export function accountSummary() {
     .where(isNull(versions.deletedAt))
     .all();
   return {
-    userId: collection.userId,
-    createdAt: collection.createdAt,
+    name: user.name,
+    email: user.email,
+    memberSince: user.createdAt,
+    collectionCreatedAt: collection.createdAt,
     resumeCount,
     versionCount,
   };
@@ -144,9 +243,15 @@ function purgeExpiredTrash(resumeId: string) {
   });
 }
 
-export function loadResumePayload(resumeId: string): ResumePayload | null {
-  getCollection();
-  const resume = db.select().from(resumes).where(eq(resumes.id, resumeId)).all()[0];
+export async function loadResumePayload(resumeId: string): Promise<ResumePayload | null> {
+  const collection = await getCollection();
+  // Scoped by collection, not just id: a resume id is guessable, and this is
+  // the single door every editor and print route loads through.
+  const resume = db
+    .select()
+    .from(resumes)
+    .where(and(eq(resumes.id, resumeId), eq(resumes.collectionId, collection.id)))
+    .all()[0];
   if (!resume) return null;
 
   purgeExpiredTrash(resumeId);

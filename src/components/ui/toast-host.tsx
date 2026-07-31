@@ -15,7 +15,7 @@ export function ToastHost() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="pointer-events-auto flex max-w-md items-center gap-3 rounded-full bg-zinc-900/95 py-2 pl-4 pr-2 text-[13px] text-zinc-50 shadow-pop backdrop-blur dark:bg-zinc-800"
+          className="anim-lift pointer-events-auto flex max-w-md items-center gap-3 rounded-full bg-zinc-900/95 py-2 pl-4 pr-2 text-[13px] text-zinc-50 shadow-pop backdrop-blur dark:bg-zinc-800"
         >
           {t.kind === "error" ? (
             <WarningIcon className="size-4 shrink-0 text-red-400" />

@@ -17,7 +17,9 @@ export type NodeKind =
   | "skill"
   | "bullet"
   | "certification"
-  | "reference";
+  | "reference"
+  | "language"
+  | "text";
 
 export interface HeaderData {
   fullName: string;
@@ -36,7 +38,15 @@ export type SectionType =
   | "projects"
   | "skills"
   | "certifications"
-  | "references";
+  | "references"
+  | "languages"
+  | "interests"
+  | "courses"
+  | "awards"
+  | "organisations"
+  | "publications"
+  | "declaration"
+  | "custom";
 
 export interface SectionData {
   title: string;
@@ -203,6 +213,12 @@ export function nodeLabel(kind: NodeKind, data: NodeData): string {
       return s("name") || "Certification";
     case "reference":
       return s("name") || "Reference";
+    case "language":
+      return [s("name"), s("level")].filter(Boolean).join(" — ") || "Language";
+    case "text": {
+      const t = s("text");
+      return t.length > 72 ? `${t.slice(0, 72)}…` : t || "Text";
+    }
   }
 }
 
@@ -229,6 +245,7 @@ export const FIELD_LABELS: Record<string, string> = {
   text: "Text",
   issuer: "Issuer",
   date: "Date",
+  level: "Level",
 };
 
 export function fieldLabel(field: string): string {

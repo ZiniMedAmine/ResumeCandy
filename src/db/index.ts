@@ -6,7 +6,7 @@ import path from "node:path";
 import * as schema from "./schema";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = process.env.VIBECV_DB_PATH ?? path.join(DATA_DIR, "vibecv.db");
+const DB_PATH = process.env.RESUMECANDY_DB_PATH ?? path.join(DATA_DIR, "resumecandy.db");
 
 function createDb() {
   if (DB_PATH !== ":memory:") {
@@ -22,9 +22,9 @@ function createDb() {
 
 // Survive dev-server module reloads without piling up connections.
 const globalForDb = globalThis as unknown as {
-  __vibecvDb?: ReturnType<typeof createDb>;
+  __resumecandyDb?: ReturnType<typeof createDb>;
 };
 
-export const db = globalForDb.__vibecvDb ?? (globalForDb.__vibecvDb = createDb());
+export const db = globalForDb.__resumecandyDb ?? (globalForDb.__resumecandyDb = createDb());
 
 export * as tables from "./schema";

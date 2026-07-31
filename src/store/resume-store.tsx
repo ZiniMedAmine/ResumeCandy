@@ -66,6 +66,8 @@ export interface ResumeStoreState {
   editField(nodeId: string, field: string, value: unknown): void;
   setHidden(nodeId: string, hidden: boolean, opts?: { silent?: boolean }): void;
   moveNode(nodeId: string, direction: -1 | 1): void;
+  /** Drop a node at `toIndex` among its siblings, counted with the node removed. */
+  moveNodeTo(nodeId: string, toIndex: number): void;
   addNode(parentId: string | null, kind: NodeKind, data?: NodeData): string;
   deleteNodeHard(nodeId: string): void;
   resetField(nodeId: string, field: string, opts?: { silent?: boolean }): void;
@@ -182,6 +184,14 @@ export function createResumeStore(
       return resolveVersion(Object.values(s.nodes), overridesArr, versionId ?? s.activeVersionId, {
         includeHidden: true,
       });
+    };
+
+    /** The node's siblings in the active version, in rendered order. */
+    const siblingsOf = (nodeId: string) => {
+      const tree = resolveActive();
+      const resolved = tree.byId.get(nodeId);
+      if (!resolved) return [];
+      return resolved.parentId ? (tree.byId.get(resolved.parentId)?.children ?? []) : tree.roots;
     };
 
     const subtreeNodes = (rootId: string): ResumeNode[] => {
@@ -331,28 +341,26 @@ export function createResumeStore(
       },
 
       moveNode(nodeId, direction) {
+        const siblings = siblingsOf(nodeId);
+        const from = siblings.findIndex((n) => n.id === nodeId);
+        if (from === -1) return;
+        const target = from + direction;
+        if (target < 0 || target >= siblings.length) return;
+        get().moveNodeTo(nodeId, target);
+      },
+
+      moveNodeTo(nodeId, toIndex) {
         const s = get();
         const version = activeVersion();
         const node = s.nodes[nodeId];
         if (!version || !node) return;
-        const tree = resolveActive();
-        const resolved = tree.byId.get(nodeId);
-        if (!resolved) return;
-        const siblings = resolved.parentId
-          ? (tree.byId.get(resolved.parentId)?.children ?? [])
-          : tree.roots;
-        const idx = siblings.findIndex((n) => n.id === nodeId);
-        const target = idx + direction;
-        if (idx === -1 || target < 0 || target >= siblings.length) return;
 
-        let newRank: string;
-        if (direction === -1) {
-          const before = siblings[target - 1];
-          newRank = rankBetween(before?.rank ?? null, siblings[target].rank);
-        } else {
-          const after = siblings[target + 1];
-          newRank = rankBetween(siblings[target].rank, after?.rank ?? null);
-        }
+        // Rank is computed against the list *without* the node being moved, so
+        // an index means the same thing whether it came from an arrow or from
+        // a drop position.
+        const rest = siblingsOf(nodeId).filter((n) => n.id !== nodeId);
+        const at = Math.max(0, Math.min(toIndex, rest.length));
+        const newRank = rankBetween(rest[at - 1]?.rank ?? null, rest[at]?.rank ?? null);
 
         const editsBaseTree = isBase(version) || node.ownerVersionId === version.id;
         if (editsBaseTree) {
@@ -1029,6 +1037,10 @@ export function kindDefaults(kind: NodeKind): NodeData {
       return { name: "", issuer: "", date: "" };
     case "reference":
       return { name: "", title: "", company: "", email: "", phone: "" };
+    case "language":
+      return { name: "", level: "" };
+    case "text":
+      return { text: "" };
   }
 }
 

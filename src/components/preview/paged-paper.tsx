@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { pageFormatOf, type DesignSettings } from "@/lib/design";
+import { fontStack, pageFormatOf, type DesignSettings } from "@/lib/design";
 import {
   computePageLayout,
   sameLayout,
@@ -59,6 +59,7 @@ export function blockProps(
 /** CSS custom properties + typography every template renders inside. */
 export function contentVars(design: DesignSettings): React.CSSProperties {
   return {
+    fontFamily: fontStack(design.fontFamily),
     fontSize: `${design.fontSize}px`,
     lineHeight: design.lineHeight,
     "--accent": design.accentColor,
@@ -96,27 +97,29 @@ function measureBlocks(root: HTMLElement): MeasuredBlock[] {
  */
 export function PagedPaper({
   design,
-  fontClass,
   backdropClass = "bg-sunken",
+  footer,
   children,
 }: {
   design: DesignSettings;
-  fontClass: string;
   backdropClass?: string;
+  /** Name/email the footer may print alongside the page number. */
+  footer?: { name?: string; email?: string };
   children: React.ReactNode;
 }) {
   const { thumbnail, print } = usePreviewMode();
 
   const format = pageFormatOf(design);
-  const margin = design.pageMargins;
-  const contentWidth = format.width - margin * 2;
-  const contentHeight = format.height - margin * 2;
+  const marginX = design.marginX;
+  const marginY = design.marginY;
+  const contentWidth = format.width - marginX * 2;
+  const contentHeight = format.height - marginY * 2;
   // On paper the sheets butt up against each other, so page N+1 starts exactly
   // one page height down and the browser's page breaks land on ours.
   const gap = print ? 0 : PAGE_GAP;
   // Crossing a page edge costs the current page's bottom margin, the gap and
   // the next page's top margin.
-  const pageBreakOffset = margin * 2 + gap;
+  const pageBreakOffset = marginY * 2 + gap;
 
   const measureRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -164,12 +167,18 @@ export function PagedPaper({
   const offsetLeft = print ? 0 : Math.max(0, (available - format.width * scale) / 2);
   const pages = Array.from({ length: pageCount }, (_, i) => i);
 
+  const footerParts = [
+    design.footerName ? footer?.name : "",
+    design.footerEmail ? footer?.email : "",
+  ].filter((v): v is string => Boolean(v));
+  const hasFooter = footerParts.length > 0 || design.footerPageNumbers;
+
   return (
     <div ref={outerRef} className="relative w-full">
       {/* Off-screen measuring copy: same width and typography, zero pushes. */}
       {!thumbnail && (
         <div className="pointer-events-none absolute h-0 w-0 overflow-hidden" aria-hidden>
-          <div ref={measureRef} className={fontClass} style={{ width: contentWidth, ...contentVars(design) }}>
+          <div ref={measureRef} style={{ width: contentWidth, ...contentVars(design) }}>
             <BlockMarginContext.Provider value={EMPTY_MARGINS}>{children}</BlockMarginContext.Provider>
           </div>
         </div>
@@ -177,7 +186,6 @@ export function PagedPaper({
 
       <div style={{ height: totalHeight * scale }}>
         <div
-          className={fontClass}
           style={{
             position: "absolute",
             top: 0,
@@ -201,8 +209,8 @@ export function PagedPaper({
           <div
             className={`absolute text-zinc-800 ${thumbnail ? "overflow-hidden" : ""}`}
             style={{
-              left: margin,
-              top: margin,
+              left: marginX,
+              top: marginY,
               width: contentWidth,
               // A thumbnail shows the top of page one and nothing more.
               ...(thumbnail ? { height: contentHeight } : null),
@@ -210,6 +218,31 @@ export function PagedPaper({
           >
             <BlockMarginContext.Provider value={layout.margins}>{children}</BlockMarginContext.Provider>
           </div>
+
+          {/* Footers live in each sheet's bottom margin, so they never collide
+              with the flow the paginator measured. */}
+          {!thumbnail &&
+            hasFooter &&
+            pages.map((i) => (
+              <div
+                key={`footer-${i}`}
+                className="pointer-events-none absolute z-10 flex items-end justify-between text-[10px] text-zinc-400"
+                style={{
+                  top: i * (format.height + gap) + format.height - marginY,
+                  left: marginX,
+                  width: contentWidth,
+                  height: marginY,
+                  paddingBottom: Math.min(14, marginY / 2),
+                }}
+              >
+                <span className="truncate">{footerParts.join(" · ")}</span>
+                {design.footerPageNumbers && (
+                  <span className="shrink-0 tabular-nums">
+                    {i + 1} / {pageCount}
+                  </span>
+                )}
+              </div>
+            ))}
 
           {/* Masks cut the flow at every page edge (nothing to cut on paper). */}
           {!print &&
@@ -221,16 +254,19 @@ export function PagedPaper({
               />
             ))}
 
+          {/* On-screen page counter — suppressed when the document prints its
+              own page numbers, so the two never sit on the same sheet. */}
           {!print &&
+            !design.footerPageNumbers &&
             pageCount > 1 &&
             pages.map((i) => (
               <div
                 key={`label-${i}`}
                 className="pointer-events-none absolute left-0 z-10 flex items-center justify-center text-[10px] text-zinc-300"
                 style={{
-                  top: i * (format.height + gap) + format.height - margin,
+                  top: i * (format.height + gap) + format.height - marginY,
                   width: format.width,
-                  height: margin,
+                  height: marginY,
                 }}
               >
                 {i + 1} / {layout.pageCount}

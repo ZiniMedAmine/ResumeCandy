@@ -1,4 +1,4 @@
-# VibeCV
+# ResumeCandy
 
 A resume builder where **versions are overlays, not copies**.
 
@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The database (`data/vibecv.db`) is created,
+Open http://localhost:3000. The database (`data/resumecandy.db`) is created,
 migrated and seeded automatically on first load with a realistic Software
 Engineer resume (Default / Google / Amazon versions).
 
@@ -92,21 +92,15 @@ by unit tests rather than eyeballed.
 
 ## PDF export
 
-**Download** in the editor exports the version you're viewing; the dashboard
-card menu exports a resume's Default. Both open `/print/[resumeId]/[versionId]`
-in a hidden frame, which renders the paper alone — no application chrome — and
-opens the browser's print dialog once fonts and pagination have settled. Choose
-"Save as PDF" as the destination.
+**Download** in the editor directly saves the version you're viewing as a PDF;
+it never opens the browser print dialog. The browser-only renderer writes the
+resolved content as real PDF text (not a canvas screenshot), embeds the
+template's fonts, and applies the active version's template, colors, typography,
+spacing, margins, and A4 / Letter / Legal page size. Text remains selectable and
+searchable for applicant tracking systems.
 
-Export goes through the browser's own print pipeline rather than a canvas
-screenshot, so the text in the PDF stays real text: selectable, searchable, and
-readable by the applicant tracking systems that parse resumes. In print mode the
-pages sit edge to edge with no gap, so the browser's page breaks land exactly on
-the planner's, and `@page` is set to the resume's physical size (A4 / Letter /
-Legal) with zero margin — the design's own margins do the spacing.
-
-The print route is a plain URL, so you can open it directly to inspect what a
-PDF will contain.
+The dashboard card menu still uses `/print/[resumeId]/[versionId]` and the
+browser print dialog for its Default-version export.
 
 ## Editing rules
 
@@ -138,5 +132,8 @@ src/components/    Content tab (collapsible section cards, provenance
                    manager table, customizations panel
 ```
 
-Auth is stubbed (a seeded dev user owns the single collection); the schema is
-auth-ready (`collections.userId`). Trashed versions purge after 30 days.
+Accounts are email + password with database-backed sessions (`src/lib/auth/`):
+the cookie holds an opaque token, the database only its hash. `proxy.ts` does
+an optimistic cookie check; `requireUser()` in the DAL is the authoritative
+gate, and every server action verifies ownership before touching a row.
+Trashed versions purge after 30 days.

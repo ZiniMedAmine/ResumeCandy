@@ -26,7 +26,7 @@ export function printResumeVersion(resumeId: string, versionId: string): void {
 
   const onMessage = (event: MessageEvent) => {
     if (event.origin !== window.location.origin) return;
-    if ((event.data as { type?: string })?.type === "vibecv:printed") cleanup();
+    if ((event.data as { type?: string })?.type === "resumecandy:printed") cleanup();
   };
 
   window.addEventListener("message", onMessage);

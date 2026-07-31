@@ -2,8 +2,6 @@
 
 import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
   CopyIcon,
   DotsIcon,
   EyeIcon,
@@ -24,7 +22,6 @@ import { useEditorUI } from "./editor-ui-context";
  *  - reset / add-to-Default: divergence management on named versions.
  */
 export function NodeControls({ node, compact = false }: { node: ResolvedNode; compact?: boolean }) {
-  const moveNode = useResumeStore((s) => s.moveNode);
   const setHidden = useResumeStore((s) => s.setHidden);
   const deleteNodeHard = useResumeStore((s) => s.deleteNodeHard);
   const resetNode = useResumeStore((s) => s.resetNode);
@@ -59,13 +56,6 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
 
   return (
     <div className="flex items-center gap-0.5 rounded-lg bg-surface/80 p-0.5 backdrop-blur-sm">
-      <button type="button" className={btn} title="Move up" onClick={() => moveNode(node.id, -1)}>
-        <ArrowUpIcon className={iconCls} />
-      </button>
-      <button type="button" className={btn} title="Move down" onClick={() => moveNode(node.id, 1)}>
-        <ArrowDownIcon className={iconCls} />
-      </button>
-
       {!isLocal && (
         <button
           type="button"

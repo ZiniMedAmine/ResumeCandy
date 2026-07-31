@@ -27,7 +27,7 @@ function documentTitle(resumeName: string, versionName: string, isBase: boolean)
  */
 export async function generateMetadata(props: PrintParams): Promise<Metadata> {
   const { resumeId, versionId } = await props.params;
-  const payload = loadResumePayload(resumeId);
+  const payload = await loadResumePayload(resumeId);
   const version = payload?.versions.find((v) => v.id === versionId);
   if (!payload || !version) return { title: "Resume" };
   const isBase = version.isBase === 1 || version.isBase === true;
@@ -45,7 +45,7 @@ export default async function PrintPage(props: PrintParams) {
   const { resumeId, versionId } = await props.params;
   const { auto } = await props.searchParams;
 
-  const payload = loadResumePayload(resumeId);
+  const payload = await loadResumePayload(resumeId);
   if (!payload) notFound();
 
   const version = payload.versions.find((v) => v.id === versionId && !v.deletedAt);

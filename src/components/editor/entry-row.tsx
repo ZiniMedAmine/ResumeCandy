@@ -1,56 +1,44 @@
 "use client";
 
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  EyeIcon,
-  EyeOffIcon,
-  GripIcon,
-} from "@/components/ui/icons";
+import { EyeIcon, EyeOffIcon, GripIcon } from "@/components/ui/icons";
 import type { ResolvedNode } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { entrySummary } from "./entry-fields";
 import { LocalBadge } from "./node-controls";
+import { dragClasses, type DropEdge } from "./use-drag-reorder";
 
 /**
  * One entry as a single line: bold title, muted qualifier, and nothing else
- * competing for attention. The grip turns into reorder arrows on hover, and
- * the eye toggles whether this version shows the entry — everything else
- * lives behind the click that opens the editor.
+ * competing for attention. The whole row is a drag handle for reordering, and
+ * the eye toggles whether this version shows the entry — everything else lives
+ * behind the click that opens the editor.
  */
-export function EntryRow({ node, onEdit }: { node: ResolvedNode; onEdit: () => void }) {
-  const moveNode = useResumeStore((s) => s.moveNode);
+export function EntryRow({
+  node,
+  onEdit,
+  dragProps,
+  dragging = false,
+  edge = null,
+}: {
+  node: ResolvedNode;
+  onEdit: () => void;
+  dragProps?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean };
+  dragging?: boolean;
+  edge?: DropEdge;
+}) {
   const setHidden = useResumeStore((s) => s.setHidden);
   const { title, subtitle } = entrySummary(node);
   const isLocal = node.status === "local";
   const hidden = node.hidden;
 
   return (
-    <div className="group/row flex items-center gap-1 rounded-xl px-1.5 py-1 transition-colors duration-150 hover:bg-sunken/70">
-      {/* Grip by default; reorder arrows once the row is hovered. */}
-      <div className="relative flex size-7 shrink-0 items-center justify-center">
-        <GripIcon className="size-4 text-ink-faint/50 transition-opacity duration-150 group-hover/row:opacity-0" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 group-hover/row:opacity-100">
-          <button
-            type="button"
-            onClick={() => moveNode(node.id, -1)}
-            className="pressable rounded text-ink-faint transition-colors duration-150 hover:text-ink"
-            title="Move up"
-            aria-label="Move up"
-          >
-            <ArrowUpIcon className="size-3" />
-          </button>
-          <button
-            type="button"
-            onClick={() => moveNode(node.id, 1)}
-            className="pressable rounded text-ink-faint transition-colors duration-150 hover:text-ink"
-            title="Move down"
-            aria-label="Move down"
-          >
-            <ArrowDownIcon className="size-3" />
-          </button>
-        </div>
-      </div>
+    <div
+      {...dragProps}
+      className={`group/row flex cursor-grab items-center gap-1 rounded-xl px-1.5 py-1 transition-colors duration-150 select-none hover:bg-sunken/70 active:cursor-grabbing ${dragClasses(dragging, edge)}`}
+    >
+      <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden>
+        <GripIcon className="size-4 text-ink-faint/50 transition-colors duration-150 group-hover/row:text-ink-faint" />
+      </span>
 
       <button
         type="button"

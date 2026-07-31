@@ -15,7 +15,7 @@ export default async function ResumePage(props: {
   params: Promise<{ resumeId: string; view?: string[] }>;
 }) {
   const { resumeId, view = [] } = await props.params;
-  const payload = loadResumePayload(resumeId);
+  const payload = await loadResumePayload(resumeId);
   if (!payload) notFound();
 
   const { versionId, tab } = parseView(view);

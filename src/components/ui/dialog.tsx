@@ -34,11 +34,15 @@ export function Dialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-[8vh]">
-      <div className="fixed inset-0 bg-zinc-950/30 backdrop-blur-[3px]" onClick={onClose} aria-hidden />
+      <div
+        className="anim-fade fixed inset-0 bg-zinc-950/30 backdrop-blur-[3px]"
+        onClick={onClose}
+        aria-hidden
+      />
       <div
         role="dialog"
         aria-modal
-        className={`relative w-full ${width} overflow-hidden rounded-2xl border border-hairline bg-surface shadow-pop`}
+        className={`anim-lift relative w-full ${width} overflow-hidden rounded-2xl border border-hairline bg-surface shadow-pop`}
       >
         {(title || !hideClose) && (
           <div className="flex items-center justify-between gap-4 border-b border-hairline px-6 py-4">

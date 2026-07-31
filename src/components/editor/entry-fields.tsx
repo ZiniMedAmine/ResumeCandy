@@ -1,12 +1,13 @@
 "use client";
 
-import { PlusIcon, XIcon } from "@/components/ui/icons";
+import { GripIcon, PlusIcon, XIcon } from "@/components/ui/icons";
 import { describeDateValue } from "@/lib/date-value";
 import type { ResolvedNode } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { DateField } from "./date-field";
 import { HiddenGhost, LocalBadge, NodeControls } from "./node-controls";
 import { ProvenanceField } from "./provenance-field";
+import { dragClasses, useDragReorder } from "./use-drag-reorder";
 
 function s(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -42,6 +43,15 @@ export function entrySummary(node: ResolvedNode): { title: string; subtitle: str
         title: s(d.name) || "Untitled reference",
         subtitle: [s(d.title), s(d.company)].filter(Boolean).join(", "),
       };
+    case "language":
+      return { title: s(d.name) || "Untitled language", subtitle: s(d.level) };
+    case "text": {
+      const body = s(d.text);
+      return {
+        title: body ? (body.length > 60 ? `${body.slice(0, 60)}…` : body) : "Empty paragraph",
+        subtitle: "",
+      };
+    }
     default:
       return { title: "Entry", subtitle: "" };
   }
@@ -62,6 +72,10 @@ export function entryKindLabel(node: ResolvedNode): string {
       return "Certification";
     case "reference":
       return "Reference";
+    case "language":
+      return "Language";
+    case "text":
+      return "Paragraph";
     default:
       return "Entry";
   }
@@ -69,16 +83,37 @@ export function entryKindLabel(node: ResolvedNode): string {
 
 function BulletList({ parent, label }: { parent: ResolvedNode; label: string }) {
   const addNode = useResumeStore((s) => s.addNode);
+  const moveNodeTo = useResumeStore((s) => s.moveNodeTo);
   const bullets = parent.children.filter((c) => c.kind === "bullet");
+  const firstBulletIndex = Math.max(0, parent.children.findIndex((c) => c.kind === "bullet"));
+  // Handle-gated: the row is mostly textarea, which has to stay selectable.
+  const drag = useDragReorder((id, to) => moveNodeTo(id, to + firstBulletIndex), {
+    requireHandle: true,
+  });
+
   return (
     <div>
       <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-ink-faint">{label}</p>
       <div className="space-y-2">
-        {bullets.map((b) =>
+        {bullets.map((b, i) =>
           b.hidden ? (
             <HiddenGhost key={b.id} node={b} />
           ) : (
-            <div key={b.id} className="group/bullet flex items-start gap-1.5">
+            <div
+              key={b.id}
+              {...drag.itemProps(b.id, i)}
+              className={`group/bullet flex items-start gap-1.5 rounded-xl ${dragClasses(
+                drag.draggingId === b.id,
+                drag.dropEdge(i, bullets.length),
+              )}`}
+            >
+              <span
+                {...drag.handleProps(b.id)}
+                className="mt-2.5 flex size-5 shrink-0 cursor-grab items-center justify-center text-ink-faint/30 transition-colors duration-150 select-none group-hover/bullet:text-ink-faint active:cursor-grabbing"
+                title="Drag to reorder"
+              >
+                <GripIcon className="size-3.5" />
+              </span>
               <ProvenanceField
                 node={b}
                 field="text"
@@ -269,6 +304,26 @@ export function EntryFields({ node }: { node: ResolvedNode }) {
             <ProvenanceField node={node} field="phone" label="Phone" placeholder="+1 555 000 0000" />
           </div>
         </div>
+      );
+
+    case "language":
+      return (
+        <div className="grid grid-cols-2 gap-3.5">
+          <ProvenanceField node={node} field="name" label="Language" placeholder="English" />
+          <ProvenanceField node={node} field="level" label="Level" placeholder="Native / C1 / Fluent" />
+        </div>
+      );
+
+    case "text":
+      return (
+        <ProvenanceField
+          node={node}
+          field="text"
+          label="Text"
+          multiline
+          rows={4}
+          placeholder="Write the paragraph as it should appear on the resume…"
+        />
       );
 
     default:
