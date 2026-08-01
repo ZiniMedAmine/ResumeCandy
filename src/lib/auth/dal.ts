@@ -4,6 +4,8 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, tables } from "@/db";
+import { isUiLocale } from "@/lib/i18n";
+import type { LocaleId } from "@/lib/locale";
 import { readSession, refreshSession } from "./session";
 
 const { users } = tables;
@@ -13,6 +15,8 @@ export interface CurrentUser {
   id: string;
   email: string;
   name: string;
+  /** Interface language; null = follow the browser. Never a résumé's language. */
+  uiLocale: LocaleId | null;
   createdAt: number;
 }
 
@@ -34,6 +38,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       id: users.id,
       email: users.email,
       name: users.name,
+      uiLocale: users.uiLocale,
       createdAt: users.createdAt,
     })
     .from(users)
@@ -44,7 +49,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!row) return null;
 
   await refreshSession(session);
-  return row;
+  return { ...row, uiLocale: isUiLocale(row.uiLocale) ? row.uiLocale : null };
 });
 
 /**

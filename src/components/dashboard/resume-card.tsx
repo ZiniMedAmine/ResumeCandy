@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ResumePreview } from "@/components/preview/resume-preview";
 import { PAGE_FORMATS } from "@/lib/design";
 import type { ResumeCardData } from "@/lib/data";
-import { relativeTime } from "@/lib/relative-time";
+import { useI18n } from "@/lib/i18n/provider";
+import { RelativeTime } from "@/components/ui/relative-time";
 import { ResumeCardActions } from "./resume-card-actions";
 
 /**
@@ -14,6 +15,7 @@ import { ResumeCardActions } from "./resume-card-actions";
 export function ResumeCard({ resume }: { resume: ResumeCardData }) {
   const format = PAGE_FORMATS[resume.design.pageFormat];
   const empty = resume.roots.length === 0;
+  const { t, fmt } = useI18n();
 
   return (
     <div className="group">
@@ -21,11 +23,11 @@ export function ResumeCard({ resume }: { resume: ResumeCardData }) {
         href={`/resume/${resume.id}`}
         className="block overflow-hidden rounded-2xl bg-surface shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
         style={{ aspectRatio: `${format.width} / ${format.height}` }}
-        aria-label={`Open ${resume.name}`}
+        aria-label={fmt(t.dashboard.openResume, { name: resume.name })}
       >
         {empty ? (
           <div className="flex h-full items-center justify-center text-[15px] text-ink-faint transition-colors duration-200 group-hover:text-ink-muted">
-            Empty resume
+            {t.dashboard.emptyResume}
           </div>
         ) : (
           // A hair of zoom on hover: enough to feel like the paper responds,
@@ -45,8 +47,8 @@ export function ResumeCard({ resume }: { resume: ResumeCardData }) {
             {resume.name}
           </Link>
           <p className="mt-1 truncate text-[15px] text-ink-faint">
-            edited {relativeTime(resume.updatedAt)} · {format.name} ·{" "}
-            {resume.versionCount} version{resume.versionCount === 1 ? "" : "s"}
+            {t.dashboard.edited} <RelativeTime ms={resume.updatedAt} /> · {format.name} ·{" "}
+            {fmt(t.dashboard.versionCount, { n: resume.versionCount })}
           </p>
         </div>
         <ResumeCardActions

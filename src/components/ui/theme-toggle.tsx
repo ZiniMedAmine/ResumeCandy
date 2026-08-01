@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useT } from "@/lib/i18n/provider";
 import { MoonIcon, SunIcon } from "./icons";
 import {
   THEME_STORAGE_KEY,
@@ -21,6 +22,8 @@ import {
  * including when the OS flips while the tab is open.
  */
 export function ThemeToggle({ className = "" }: { className?: string }) {
+  const t = useT();
+
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
@@ -45,8 +48,8 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
     <button
       type="button"
       onClick={toggle}
-      title="Switch between light and dark"
-      aria-label="Switch between light and dark"
+      title={t.common.themeToggle}
+      aria-label={t.common.themeToggle}
       className={`pressable rounded-lg p-2 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink ${className}`}
     >
       <SunIcon className="size-4.5 dark:hidden" />

@@ -3,23 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ACCENT_PRESETS,
-  ACCENT_TARGETS,
-  COLUMN_OPTIONS,
-  DATE_FORMAT_OPTIONS,
-  DATE_POSITION_OPTIONS,
-  FONTS,
-  HEADER_ALIGN_OPTIONS,
-  HEADER_DETAILS_OPTIONS,
-  HEADER_SEPARATOR_OPTIONS,
-  HEADING_CASE_OPTIONS,
-  HEADING_ICON_OPTIONS,
-  HEADING_STYLE_OPTIONS,
+  ACCENT_TARGET_KEYS,
+  COLUMN_IDS,
+  DATE_POSITION_IDS,
+  ENTRY_STRUCTURE_IDS,
+  HEADER_ALIGN_IDS,
+  HEADER_DETAILS_IDS,
+  HEADER_SEPARATOR_IDS,
+  HEADING_CASE_IDS,
+  HEADING_ICON_IDS,
+  HEADING_STYLE_IDS,
+  LOCALE_OPTIONS,
   PAGE_FORMATS,
-  PAGE_FORMAT_OPTIONS,
+  PAGE_FORMAT_IDS,
   RANGES,
-  SUBTITLE_OPTIONS,
-  TEMPLATES,
+  SUBTITLE_IDS,
+  TEMPLATE_IDS,
+  dateFormatOptions,
   fontStack,
+  fontsFor,
+  isRtl,
+  optionsFor,
   type DesignSettings,
   type FontId,
 } from "@/lib/design";
@@ -43,26 +47,29 @@ import { Stepper } from "@/components/ui/stepper";
 import { Toggle } from "@/components/ui/toggle";
 import { dragClasses, useDragReorder } from "@/components/editor/use-drag-reorder";
 import { sectionColumn } from "@/components/preview/shared";
+import { useI18n, useT } from "@/lib/i18n/provider";
 import { enterDelay } from "@/lib/motion";
 import type { SectionColumn } from "@/lib/design";
+import type { LocaleId } from "@/lib/locale";
 import type { ResolvedNode } from "@/lib/resume/types";
 import { useDesign, useResolvedTree, useResumeStore } from "@/store/resume-store";
 
 /* --------------------------------- groups ---------------------------------- */
 
+/** Ids only; the rail label and the card title come from the dictionary. */
 const GROUPS = [
-  { id: "document", label: "Document", icon: FileIcon },
-  { id: "templates", label: "Templates", icon: TemplateIcon },
-  { id: "layout", label: "Layout", icon: LayersIcon },
-  { id: "fontsize", label: "Font Size", icon: TypeIcon },
-  { id: "spacing", label: "Spacing", icon: SpacingIcon },
-  { id: "entries", label: "Entries", icon: MarginsIcon },
-  { id: "headings", label: "Headings", icon: TypeIcon },
-  { id: "font", label: "Font", icon: TypeIcon },
-  { id: "colors", label: "Colors", icon: PaletteIcon },
-  { id: "header", label: "Header", icon: UserIcon },
-  { id: "links", label: "Links", icon: LinkIcon },
-  { id: "footer", label: "Footer", icon: FileIcon },
+  { id: "document", icon: FileIcon },
+  { id: "templates", icon: TemplateIcon },
+  { id: "layout", icon: LayersIcon },
+  { id: "fontsize", icon: TypeIcon },
+  { id: "spacing", icon: SpacingIcon },
+  { id: "entries", icon: MarginsIcon },
+  { id: "headings", icon: TypeIcon },
+  { id: "font", icon: TypeIcon },
+  { id: "colors", icon: PaletteIcon },
+  { id: "header", icon: UserIcon },
+  { id: "links", icon: LinkIcon },
+  { id: "footer", icon: FileIcon },
 ] as const;
 
 type GroupId = (typeof GROUPS)[number]["id"];
@@ -103,16 +110,17 @@ function Group({
 
 /** The amber "customized in this version" marker, click to follow Default. */
 function ResetDot({ show, onReset }: { show: boolean; onReset: () => void }) {
+  const t = useT();
   if (!show) return null;
   return (
     <button
       type="button"
       onClick={onReset}
       className="pressable flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 transition-colors duration-150 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
-      title="Customized in this version — click to follow the Default again"
+      title={t.customize.resetDot}
     >
       <span className="size-1.5 rounded-full bg-amber-400" />
-      Reset
+      {t.common.reset}
     </button>
   );
 }
@@ -216,12 +224,6 @@ function HeadingPreview({ style }: { style: string }) {
 
 /* ------------------------------ section layout ----------------------------- */
 
-const COLUMN_LABEL: Record<SectionColumn, string> = {
-  main: "Main",
-  side: "Side",
-  full: "Full",
-};
-
 /**
  * The section list from FlowCV's Layout group: drag to reorder, click the pill
  * to move a section between columns. Both edits go through the normal content
@@ -232,13 +234,14 @@ function SectionLayoutList() {
   const moveNodeTo = useResumeStore((s) => s.moveNodeTo);
   const tree = useResolvedTree();
   const { design } = useDesign();
+  const t = useT();
 
   const sections = tree.roots.filter((n) => n.kind === "section");
   const firstIndex = Math.max(0, tree.roots.findIndex((n) => n.kind === "section"));
   const drag = useDragReorder((id, to) => moveNodeTo(id, to + firstIndex), { requireHandle: true });
 
   if (sections.length === 0) {
-    return <p className="text-[12.5px] text-ink-faint">Add a section in the Content tab first.</p>;
+    return <p className="text-[12.5px] text-ink-faint">{t.customize.sectionOrderEmpty}</p>;
   }
 
   // In one-column mode there is nowhere for a section to move to.
@@ -264,21 +267,25 @@ function SectionLayoutList() {
           <span
             {...drag.handleProps(node.id)}
             className="flex size-5 shrink-0 cursor-grab items-center justify-center text-ink-faint/50 transition-colors duration-150 select-none hover:text-ink-faint active:cursor-grabbing"
-            title="Drag to reorder"
+            title={t.customize.dragToReorder}
           >
             <GripIcon className="size-3.5" />
           </span>
-          <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
-            {String(node.data.title ?? "Untitled")}
+          {/* A section heading is résumé content, so it reads its own way. */}
+          <span
+            dir="auto"
+            className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink"
+          >
+            {String(node.data.title ?? t.customize.untitled)}
           </span>
           {showColumns && (
             <button
               type="button"
               onClick={() => cycle(node)}
               className="pressable shrink-0 rounded-lg border border-hairline bg-surface px-2 py-1 text-[10.5px] font-semibold text-ink-muted transition-colors duration-150 hover:border-hairline-strong hover:text-ink"
-              title="Move between columns"
+              title={t.customize.moveBetweenColumns}
             >
-              {COLUMN_LABEL[sectionColumn(node)]}
+              {t.design.sectionColumn[sectionColumn(node)]}
             </button>
           )}
         </div>
@@ -300,9 +307,11 @@ export function CustomizePanel() {
   const versions = useResumeStore((s) => s.versions);
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
   const updateDesign = useResumeStore((s) => s.updateDesign);
+  const setLanguage = useResumeStore((s) => s.setLanguage);
   const resetDesignKey = useResumeStore((s) => s.resetDesignKey);
   const resetDesignAll = useResumeStore((s) => s.resetDesignAll);
   const { design, overriddenKeys, onBase } = useDesign();
+  const { t, fmt } = useI18n();
   const activeVersion = versions.find((v) => v.id === activeVersionId);
 
   const [hexDraft, setHexDraft] = useState<string | null>(null);
@@ -350,18 +359,18 @@ export function CustomizePanel() {
                 block: "start",
               })
             }
-            className={`relative block w-full truncate rounded-lg py-1.5 pl-3 pr-2 text-left text-[12.5px] transition-colors duration-150 ${
+            className={`relative block w-full truncate rounded-lg py-1.5 ps-3 pe-2 text-start text-[12.5px] transition-colors duration-150 ${
               active === g.id
                 ? "font-semibold text-ink"
                 : "font-medium text-ink-faint hover:text-ink-muted"
             }`}
           >
             <span
-              className={`absolute inset-y-1 left-0 w-[2px] rounded-full transition-colors duration-200 ${
+              className={`absolute inset-y-1 start-0 w-[2px] rounded-full transition-colors duration-200 ${
                 active === g.id ? "bg-rose-500" : "bg-transparent"
               }`}
             />
-            {g.label}
+            {t.customize.rail[g.id]}
           </button>
         ))}
       </nav>
@@ -369,14 +378,12 @@ export function CustomizePanel() {
       <div ref={scrollerRef} className="min-w-0 flex-1 space-y-3.5 pb-24">
         {onBase ? (
           <p className="rounded-2xl bg-surface px-5 py-3.5 text-[12.5px] leading-relaxed text-ink-muted shadow-card">
-            You’re customizing the <strong className="font-semibold text-ink">Default</strong> — these
-            design choices flow into every version that hasn’t overridden them.
+            {t.customize.onDefaultNotice}
           </p>
         ) : (
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-3.5 shadow-card">
             <p className="text-[12.5px] leading-relaxed text-ink-muted">
-              Design changes here apply to{" "}
-              <strong className="font-semibold text-ink">{activeVersion?.name}</strong> only.
+              {fmt(t.customize.onVersionNotice, { name: activeVersion?.name ?? "" })}
             </p>
             {overriddenKeys.size > 0 && (
               <button
@@ -385,68 +392,92 @@ export function CustomizePanel() {
                 className="pressable flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1.5 text-[12px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink"
               >
                 <UndoIcon className="size-3.5" />
-                Reset design
+                {t.customize.resetDesign}
               </button>
             )}
           </div>
         )}
 
         {/* ------------------------------ document ------------------------------ */}
-        <Group id="document" title="Document Settings" icon={<FileIcon />} index={0}>
+        <Group id="document" title={t.customize.group.document} icon={<FileIcon />} index={0}>
           <div className="space-y-5">
             <div>
-              <RowLabel label="Page format" trailing={marker("pageFormat")} />
+              <RowLabel label={t.customize.resumeLanguage} trailing={marker("language")} />
               <Segmented
-                options={PAGE_FORMAT_OPTIONS}
+                options={LOCALE_OPTIONS}
+                value={design.language}
+                onChange={(v) => setLanguage(v)}
+              />
+              <p className="mt-2 text-[11.5px] leading-relaxed text-ink-faint">
+                {t.customize.resumeLanguageHint}
+              </p>
+            </div>
+            {isRtl(design) && (
+              <Toggle
+                label={t.customize.arabicNumerals}
+                hint={t.customize.arabicNumeralsHint}
+                checked={design.arabicIndicDigits}
+                onChange={(v) => set("arabicIndicDigits", v)}
+                trailing={marker("arabicIndicDigits")}
+              />
+            )}
+            <div>
+              <RowLabel label={t.customize.pageFormat} trailing={marker("pageFormat")} />
+              <Segmented
+                options={optionsFor(PAGE_FORMAT_IDS, t.design.pageFormat)}
                 value={design.pageFormat}
                 onChange={(v) => set("pageFormat", v)}
               />
               <p className="mt-2 text-[11.5px] leading-relaxed text-ink-faint">
-                {PAGE_FORMATS[design.pageFormat].hint} — content that overflows continues on a new page.
+                {fmt(t.customize.pageFormatHint, { hint: PAGE_FORMATS[design.pageFormat].hint })}
               </p>
             </div>
             <div>
-              <RowLabel label="Date format" trailing={marker("dateFormat")} />
+              <RowLabel label={t.customize.dateFormat} trailing={marker("dateFormat")} />
               <Segmented
-                options={DATE_FORMAT_OPTIONS}
+                options={dateFormatOptions(design)}
                 value={design.dateFormat}
                 onChange={(v) => set("dateFormat", v)}
               />
               <p className="mt-2 text-[11.5px] leading-relaxed text-ink-faint">
-                Applies to every date on the resume. Dates you typed freehand are left alone.
+                {t.customize.dateFormatHint}
               </p>
             </div>
           </div>
         </Group>
 
         {/* ------------------------------ templates ----------------------------- */}
-        <Group id="templates" title="Design Templates" icon={<TemplateIcon />} index={1}>
-          <RowLabel label="Template" trailing={marker("template")} />
+        <Group id="templates" title={t.customize.group.templates} icon={<TemplateIcon />} index={1}>
+          <RowLabel label={t.customize.template} trailing={marker("template")} />
           <div className="grid grid-cols-2 gap-3.5">
-            {TEMPLATES.map((t) => {
-              const isActive = design.template === t.id;
+            {TEMPLATE_IDS.map((id) => {
+              const isActive = design.template === id;
               return (
                 <button
-                  key={t.id}
+                  key={id}
                   type="button"
-                  onClick={() => set("template", t.id)}
-                  className={`pressable group overflow-hidden rounded-xl border text-left transition-all duration-150 ${
+                  onClick={() => set("template", id)}
+                  className={`pressable group overflow-hidden rounded-xl border text-start transition-all duration-150 ${
                     isActive
                       ? "border-rose-400 ring-4 ring-rose-500/10"
                       : "border-hairline hover:border-hairline-strong"
                   }`}
                 >
                   <div className="relative aspect-[4/3] w-full border-b border-hairline bg-sunken">
-                    <TemplateThumb id={t.id} />
+                    <TemplateThumb id={id} />
                     {isActive && (
-                      <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-card">
+                      <span className="absolute end-2 top-2 flex size-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-card">
                         <CheckIcon className="size-3" />
                       </span>
                     )}
                   </div>
                   <div className="px-3.5 py-2.5">
-                    <p className="text-[13px] font-semibold text-ink">{t.name}</p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-ink-faint">{t.description}</p>
+                    <p className="text-[13px] font-semibold text-ink">
+                      {t.design.template[id].name}
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-ink-faint">
+                      {t.design.template[id].description}
+                    </p>
                   </div>
                 </button>
               );
@@ -455,14 +486,14 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------- layout ------------------------------- */}
-        <Group id="layout" title="Layout" icon={<LayersIcon />} index={2}>
+        <Group id="layout" title={t.customize.group.layout} icon={<LayersIcon />} index={2}>
           <div className="space-y-5">
             <div>
-              <RowLabel label="Columns" trailing={marker("columns")} />
+              <RowLabel label={t.customize.columns} trailing={marker("columns")} />
               <OptionCards
                 value={design.columns}
                 onChange={(v) => set("columns", v)}
-                options={COLUMN_OPTIONS.map((o) => ({
+                options={optionsFor(COLUMN_IDS, t.design.columns).map((o) => ({
                   value: o.value,
                   label: o.label,
                   preview:
@@ -482,7 +513,7 @@ export function CustomizePanel() {
 
             {design.columns !== "one" && (
               <Stepper
-                label="Side column width"
+                label={t.customize.sidebarWidth}
                 range={RANGES.sidebarWidth}
                 value={design.sidebarWidth}
                 onChange={(v) => set("sidebarWidth", v)}
@@ -491,12 +522,11 @@ export function CustomizePanel() {
             )}
 
             <div>
-              <RowLabel label="Section order" />
+              <RowLabel label={t.customize.sectionOrder} />
               <SectionLayoutList />
               {design.columns === "mix" && (
                 <p className="mt-2 text-[11.5px] leading-relaxed text-ink-faint">
-                  Sections set to <strong className="font-semibold text-ink-muted">Full</strong> span the
-                  whole width and are printed above the two-column area.
+                  {t.customize.mixHint}
                 </p>
               )}
             </div>
@@ -504,38 +534,38 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------ font size ----------------------------- */}
-        <Group id="fontsize" title="Font Size" icon={<TypeIcon />} index={3}>
+        <Group id="fontsize" title={t.customize.group.fontsize} icon={<TypeIcon />} index={3}>
           <div className="space-y-4">
             <Stepper
-              label="Base font size"
+              label={t.customize.fontSize}
               range={RANGES.fontSize}
               value={design.fontSize}
               onChange={(v) => set("fontSize", v)}
               trailing={marker("fontSize")}
             />
             <Stepper
-              label="Full name"
+              label={t.customize.nameSize}
               range={RANGES.nameSize}
               value={design.nameSize}
               onChange={(v) => set("nameSize", v)}
               trailing={marker("nameSize")}
             />
             <Stepper
-              label="Professional title"
+              label={t.customize.titleSize}
               range={RANGES.titleSize}
               value={design.titleSize}
               onChange={(v) => set("titleSize", v)}
               trailing={marker("titleSize")}
             />
             <Stepper
-              label="Section headings"
+              label={t.customize.headingSize}
               range={RANGES.headingSize}
               value={design.headingSize}
               onChange={(v) => set("headingSize", v)}
               trailing={marker("headingSize")}
             />
             <Stepper
-              label="Entry header"
+              label={t.customize.entryHeaderSize}
               range={RANGES.entryHeaderSize}
               value={design.entryHeaderSize}
               onChange={(v) => set("entryHeaderSize", v)}
@@ -545,31 +575,31 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------- spacing ------------------------------ */}
-        <Group id="spacing" title="Spacing" icon={<SpacingIcon />} index={4}>
+        <Group id="spacing" title={t.customize.group.spacing} icon={<SpacingIcon />} index={4}>
           <div className="space-y-4">
             <Stepper
-              label="Line height"
+              label={t.customize.lineHeight}
               range={RANGES.lineHeight}
               value={design.lineHeight}
               onChange={(v) => set("lineHeight", v)}
               trailing={marker("lineHeight")}
             />
             <Stepper
-              label="Space between elements"
+              label={t.customize.sectionSpacing}
               range={RANGES.sectionSpacing}
               value={design.sectionSpacing}
               onChange={(v) => set("sectionSpacing", v)}
               trailing={marker("sectionSpacing")}
             />
             <Stepper
-              label="Left & right margin"
+              label={t.customize.marginX}
               range={RANGES.marginX}
               value={design.marginX}
               onChange={(v) => set("marginX", v)}
               trailing={marker("marginX")}
             />
             <Stepper
-              label="Top & bottom margin"
+              label={t.customize.marginY}
               range={RANGES.marginY}
               value={design.marginY}
               onChange={(v) => set("marginY", v)}
@@ -579,32 +609,32 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------- entries ------------------------------ */}
-        <Group id="entries" title="Entry Layout" icon={<MarginsIcon />} index={5}>
+        <Group id="entries" title={t.customize.group.entries} icon={<MarginsIcon />} index={5}>
           <div className="space-y-5">
             <div>
-              <RowLabel label="Structure" trailing={marker("entryStructure")} />
+              <RowLabel label={t.customize.structure} trailing={marker("entryStructure")} />
               <OptionCards
                 columns={2}
                 value={design.entryStructure}
                 onChange={(v) => set("entryStructure", v)}
-                options={[
-                  { value: "full" as const, label: "Full width", preview: <Lines count={3} /> },
-                  { value: "columns" as const, label: "Columns", preview: <TwoUp ratio="2fr 1fr" /> },
-                ]}
+                options={optionsFor(ENTRY_STRUCTURE_IDS, t.design.entryStructure).map((o) => ({
+                  ...o,
+                  preview: o.value === "full" ? <Lines count={3} /> : <TwoUp ratio="2fr 1fr" />,
+                }))}
               />
             </div>
             <div>
-              <RowLabel label="Date & location position" trailing={marker("datePosition")} />
+              <RowLabel label={t.customize.datePosition} trailing={marker("datePosition")} />
               <Segmented
-                options={DATE_POSITION_OPTIONS}
+                options={optionsFor(DATE_POSITION_IDS, t.design.datePosition)}
                 value={design.datePosition}
                 onChange={(v) => set("datePosition", v)}
               />
             </div>
             <div>
-              <RowLabel label="Subtitle placement" trailing={marker("subtitlePlacement")} />
+              <RowLabel label={t.customize.subtitlePlacement} trailing={marker("subtitlePlacement")} />
               <Segmented
-                options={SUBTITLE_OPTIONS}
+                options={optionsFor(SUBTITLE_IDS, t.design.subtitlePlacement)}
                 value={design.subtitlePlacement}
                 onChange={(v) => set("subtitlePlacement", v)}
               />
@@ -613,14 +643,14 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------ headings ------------------------------ */}
-        <Group id="headings" title="Section Headings" icon={<TypeIcon />} index={6}>
+        <Group id="headings" title={t.customize.group.headings} icon={<TypeIcon />} index={6}>
           <div className="space-y-5">
             <div>
-              <RowLabel label="Style" trailing={marker("headingStyle")} />
+              <RowLabel label={t.customize.headingStyle} trailing={marker("headingStyle")} />
               <OptionCards
                 value={design.headingStyle}
                 onChange={(v) => set("headingStyle", v)}
-                options={HEADING_STYLE_OPTIONS.map((o) => ({
+                options={optionsFor(HEADING_STYLE_IDS, t.design.headingStyle).map((o) => ({
                   value: o.value,
                   label: o.label,
                   preview: <HeadingPreview style={o.value} />,
@@ -628,17 +658,17 @@ export function CustomizePanel() {
               />
             </div>
             <div>
-              <RowLabel label="Capitalization" trailing={marker("headingCase")} />
+              <RowLabel label={t.customize.headingCase} trailing={marker("headingCase")} />
               <Segmented
-                options={HEADING_CASE_OPTIONS}
+                options={optionsFor(HEADING_CASE_IDS, t.design.headingCase)}
                 value={design.headingCase}
                 onChange={(v) => set("headingCase", v)}
               />
             </div>
             <div>
-              <RowLabel label="Icons" trailing={marker("headingIcons")} />
+              <RowLabel label={t.customize.headingIcons} trailing={marker("headingIcons")} />
               <Segmented
-                options={HEADING_ICON_OPTIONS}
+                options={optionsFor(HEADING_ICON_IDS, t.design.headingIcons)}
                 value={design.headingIcons}
                 onChange={(v) => set("headingIcons", v)}
               />
@@ -647,19 +677,21 @@ export function CustomizePanel() {
         </Group>
 
         {/* -------------------------------- font -------------------------------- */}
-        <Group id="font" title="Font" icon={<TypeIcon />} index={7}>
+        <Group id="font" title={t.customize.group.font} icon={<TypeIcon />} index={7}>
           <div className="space-y-5">
             <div>
-              <RowLabel label="Body font" trailing={marker("fontFamily")} />
+              <RowLabel label={t.customize.bodyFont} trailing={marker("fontFamily")} />
               <FontSelect
                 value={design.fontFamily}
+                locale={design.language}
                 onChange={(v) => v && set("fontFamily", v)}
               />
             </div>
             <div>
-              <RowLabel label="Name font" trailing={marker("nameFont")} />
+              <RowLabel label={t.customize.nameFont} trailing={marker("nameFont")} />
               <FontSelect
                 value={design.nameFont}
+                locale={design.language}
                 allowSame
                 onChange={(v) => set("nameFont", v)}
               />
@@ -668,8 +700,8 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------- colors ------------------------------- */}
-        <Group id="colors" title="Colors" icon={<PaletteIcon />} index={8}>
-          <RowLabel label="Accent color" trailing={marker("accentColor")} />
+        <Group id="colors" title={t.customize.group.colors} icon={<PaletteIcon />} index={8}>
+          <RowLabel label={t.customize.accentColor} trailing={marker("accentColor")} />
           <div className="flex flex-wrap items-center gap-2.5">
             {ACCENT_PRESETS.map((preset) => {
               const isActive = design.accentColor === preset.value;
@@ -677,7 +709,7 @@ export function CustomizePanel() {
                 <button
                   key={preset.value}
                   type="button"
-                  title={preset.name}
+                  title={t.design.accent[preset.id]}
                   onClick={() => {
                     setHexDraft(null);
                     set("accentColor", preset.value);
@@ -710,19 +742,19 @@ export function CustomizePanel() {
               spellCheck={false}
               className="w-28 rounded-lg border border-hairline bg-surface px-3 py-2 font-mono text-[12.5px] uppercase text-ink outline-none transition-colors duration-150 focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10"
             />
-            <span className="text-[11.5px] text-ink-faint">Custom hex</span>
+            <span className="text-[11.5px] text-ink-faint">{t.customize.customHex}</span>
           </div>
 
           <div className="mt-5">
-            <RowLabel label="Apply accent color to" />
+            <RowLabel label={t.customize.applyAccentTo} />
             <div className="grid grid-cols-2 gap-x-4">
-              {ACCENT_TARGETS.map((t) => (
+              {ACCENT_TARGET_KEYS.map((key) => (
                 <Toggle
-                  key={t.key}
-                  label={t.label}
-                  checked={design[t.key] as boolean}
-                  onChange={(v) => set(t.key, v as never)}
-                  trailing={marker(t.key)}
+                  key={key}
+                  label={t.design.accentTarget[key]}
+                  checked={design[key]}
+                  onChange={(v) => set(key, v)}
+                  trailing={marker(key)}
                 />
               ))}
             </div>
@@ -730,35 +762,35 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------- header ------------------------------- */}
-        <Group id="header" title="Header" icon={<UserIcon />} index={9}>
+        <Group id="header" title={t.customize.group.header} icon={<UserIcon />} index={9}>
           <div className="space-y-5">
             <div>
-              <RowLabel label="Text alignment" trailing={marker("headerAlign")} />
+              <RowLabel label={t.customize.headerAlign} trailing={marker("headerAlign")} />
               <Segmented
-                options={HEADER_ALIGN_OPTIONS}
+                options={optionsFor(HEADER_ALIGN_IDS, t.design.headerAlign)}
                 value={design.headerAlign}
                 onChange={(v) => set("headerAlign", v)}
               />
             </div>
             <div>
-              <RowLabel label="Details arrangement" trailing={marker("headerDetails")} />
+              <RowLabel label={t.customize.headerDetails} trailing={marker("headerDetails")} />
               <Segmented
-                options={HEADER_DETAILS_OPTIONS}
+                options={optionsFor(HEADER_DETAILS_IDS, t.design.headerDetails)}
                 value={design.headerDetails}
                 onChange={(v) => set("headerDetails", v)}
               />
             </div>
             <div>
-              <RowLabel label="Separator" trailing={marker("headerSeparator")} />
+              <RowLabel label={t.customize.headerSeparator} trailing={marker("headerSeparator")} />
               <Segmented
-                options={HEADER_SEPARATOR_OPTIONS}
+                options={optionsFor(HEADER_SEPARATOR_IDS, t.design.headerSeparator)}
                 value={design.headerSeparator}
                 onChange={(v) => set("headerSeparator", v)}
               />
             </div>
             <Toggle
-              label="Show photo"
-              hint="A placeholder circle until photo uploads land"
+              label={t.customize.showPhoto}
+              hint={t.customize.showPhotoHint}
               checked={design.showPhoto}
               onChange={(v) => set("showPhoto", v)}
               trailing={marker("showPhoto")}
@@ -767,22 +799,22 @@ export function CustomizePanel() {
         </Group>
 
         {/* -------------------------------- links ------------------------------- */}
-        <Group id="links" title="Link Styling" icon={<LinkIcon />} index={10}>
+        <Group id="links" title={t.customize.group.links} icon={<LinkIcon />} index={10}>
           <div className="space-y-1">
             <Toggle
-              label="Underline"
+              label={t.customize.linkUnderline}
               checked={design.linkUnderline}
               onChange={(v) => set("linkUnderline", v)}
               trailing={marker("linkUnderline")}
             />
             <Toggle
-              label="Accent color"
+              label={t.customize.linkAccent}
               checked={design.linkAccent}
               onChange={(v) => set("linkAccent", v)}
               trailing={marker("linkAccent")}
             />
             <Toggle
-              label="Link icon"
+              label={t.customize.linkIcon}
               checked={design.linkIcon}
               onChange={(v) => set("linkIcon", v)}
               trailing={marker("linkIcon")}
@@ -791,30 +823,29 @@ export function CustomizePanel() {
         </Group>
 
         {/* ------------------------------- footer ------------------------------- */}
-        <Group id="footer" title="Footer" icon={<FileIcon />} index={11}>
+        <Group id="footer" title={t.customize.group.footer} icon={<FileIcon />} index={11}>
           <div className="space-y-1">
             <Toggle
-              label="Page numbers"
+              label={t.customize.footerPageNumbers}
               checked={design.footerPageNumbers}
               onChange={(v) => set("footerPageNumbers", v)}
               trailing={marker("footerPageNumbers")}
             />
             <Toggle
-              label="Email"
+              label={t.customize.footerEmail}
               checked={design.footerEmail}
               onChange={(v) => set("footerEmail", v)}
               trailing={marker("footerEmail")}
             />
             <Toggle
-              label="Name"
+              label={t.customize.footerName}
               checked={design.footerName}
               onChange={(v) => set("footerName", v)}
               trailing={marker("footerName")}
             />
           </div>
           <p className="mt-3 text-[11.5px] leading-relaxed text-ink-faint">
-            The footer prints inside the bottom margin of every page. Widen it under Spacing if it
-            feels cramped.
+            {t.customize.footerHint}
           </p>
         </Group>
       </div>
@@ -823,15 +854,22 @@ export function CustomizePanel() {
 }
 
 /** Font picker that previews each family in its own typeface. */
+/**
+ * Only families that can actually draw the CV's script are offered — listing
+ * Georgia for an Arabic resume would just be a way to render tofu.
+ */
 function FontSelect({
   value,
   onChange,
+  locale,
   allowSame = false,
 }: {
   value: FontId | null;
   onChange: (value: FontId | null) => void;
+  locale: LocaleId;
   allowSame?: boolean;
 }) {
+  const t = useT();
   return (
     <select
       value={value ?? "__same"}
@@ -839,8 +877,8 @@ function FontSelect({
       className="w-full cursor-pointer rounded-xl border border-hairline bg-surface px-3 py-2.5 text-[13px] text-ink outline-none transition-colors duration-150 focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10"
       style={{ fontFamily: value ? fontStack(value) : undefined }}
     >
-      {allowSame && <option value="__same">Same as body font</option>}
-      {FONTS.map((f) => (
+      {allowSame && <option value="__same">{t.customize.sameAsBody}</option>}
+      {fontsFor(locale).map((f) => (
         <option key={f.id} value={f.id} style={{ fontFamily: f.stack }}>
           {f.name}
         </option>

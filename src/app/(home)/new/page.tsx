@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TemplateChooser } from "@/components/dashboard/template-chooser";
 import { ArrowLeftIcon } from "@/components/ui/icons";
+import { getI18n } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function NewResumePage(props: {
 }) {
   const { name } = await props.searchParams;
   const trimmed = (name ?? "").trim();
+  const { t } = await getI18n();
 
   if (!trimmed) {
     return (
@@ -22,17 +24,19 @@ export default async function NewResumePage(props: {
           href="/"
           className="mb-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:text-ink"
         >
-          <ArrowLeftIcon className="size-4 text-ink-faint" />
-          Back to resumes
+          {/* The arrow points back the way the reader came, which is the other
+              way round in an RTL interface. */}
+          <ArrowLeftIcon className="size-4 text-ink-faint rtl:-scale-x-100" />
+          {t.newResume.backToResumes}
         </Link>
 
         <header className="mb-8">
           <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-rose-500">
-            Step 1 of 2
+            {t.newResume.step1}
           </p>
-          <h1 className="text-[26px] font-bold tracking-tight text-ink">Name your resume</h1>
+          <h1 className="text-[26px] font-bold tracking-tight text-ink">{t.newResume.nameTitle}</h1>
           <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-muted">
-            Name it after the career or role it targets — you’ll pick a template next.
+            {t.newResume.nameHint}
           </p>
         </header>
 
@@ -41,21 +45,22 @@ export default async function NewResumePage(props: {
             htmlFor="name"
             className="mb-1.5 block text-[10.5px] font-semibold uppercase tracking-[0.07em] text-ink-faint"
           >
-            Career or role
+            {t.dashboard.careerOrRole}
           </label>
           <input
             id="name"
             name="name"
             required
             autoFocus
-            placeholder="e.g. Product Manager"
+            dir="auto"
+            placeholder={t.dashboard.rolePlaceholder}
             className="w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-[13.5px] text-ink outline-none transition-colors duration-150 focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10"
           />
           <button
             type="submit"
             className="mt-3.5 rounded-xl bg-gradient-to-r from-rose-500 to-orange-400 px-5 py-2.5 text-[13.5px] font-semibold text-white shadow-card transition-all duration-150 hover:shadow-card-hover hover:brightness-[1.03]"
           >
-            Continue
+            {t.newResume.continue}
           </button>
         </form>
       </div>

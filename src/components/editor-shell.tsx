@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ToastHost } from "@/components/ui/toast-host";
+import { useI18n, useT } from "@/lib/i18n/provider";
 import { downloadResumePdf } from "@/lib/pdf/resume-pdf";
 import { CopyCustomizationsDialog, CopyFieldDialog } from "@/components/versions/copy-dialog";
 import { CustomizationsPanel } from "@/components/versions/customizations-panel";
@@ -42,10 +43,11 @@ import {
 function SaveIndicator() {
   const pending = useResumeStore((s) => s.pendingSaves);
   const saving = pending > 0;
+  const t = useT();
   return (
     <span
       className="flex items-center gap-1.5 text-[11.5px] text-ink-faint"
-      title={saving ? "Saving…" : "All changes saved"}
+      title={saving ? t.editor.saving : t.editor.allSaved}
     >
       {/* Swapping the element is what replays the entrance, so every save ends
           on a small green beat instead of a silent icon change. */}
@@ -54,14 +56,14 @@ function SaveIndicator() {
       ) : (
         <CloudCheckIcon key="saved" className="anim-pop size-4 text-emerald-500/70" />
       )}
-      <span className="hidden xl:inline">{saving ? "Saving…" : "Saved"}</span>
+      <span className="hidden xl:inline">{saving ? t.editor.saving : t.editor.saved}</span>
     </span>
   );
 }
 
-const TABS: { id: EditorTab; label: string; icon: React.ReactNode }[] = [
-  { id: "content", label: "Content", icon: <FileIcon /> },
-  { id: "customize", label: "Customize", icon: <PaletteIcon /> },
+const TABS: { id: EditorTab; icon: React.ReactNode }[] = [
+  { id: "content", icon: <FileIcon /> },
+  { id: "customize", icon: <PaletteIcon /> },
 ];
 
 /**
@@ -72,28 +74,31 @@ const TABS: { id: EditorTab; label: string; icon: React.ReactNode }[] = [
 function TabSwitch() {
   const tab = useResumeStore((s) => s.tab);
   const setTab = useResumeStore((s) => s.setTab);
-  const index = Math.max(0, TABS.findIndex((t) => t.id === tab));
+  const { t, dir } = useI18n();
+  const index = Math.max(0, TABS.findIndex((item) => item.id === tab));
 
   return (
     <nav
       className="absolute left-1/2 grid -translate-x-1/2 grid-cols-2 rounded-xl bg-sunken p-1"
       role="tablist"
     >
-      {/* Equal columns are what let the pill travel exactly 100% of itself. */}
+      {/* Equal columns are what let the pill travel exactly 100% of itself.
+          The travel is physical, so RTL has to send it the other way — the
+          second tab sits to the *left* of the first there. */}
       <span
         aria-hidden
-        className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-surface shadow-card transition-transform duration-300 ease-[var(--ease-entrance)]"
-        style={{ transform: `translateX(${index * 100}%)` }}
+        className="absolute inset-y-1 start-1 w-[calc(50%-4px)] rounded-lg bg-surface shadow-card transition-transform duration-300 ease-[var(--ease-entrance)]"
+        style={{ transform: `translateX(${index * (dir === "rtl" ? -100 : 100)}%)` }}
       />
-      {TABS.map((t) => {
-        const active = t.id === tab;
+      {TABS.map((item) => {
+        const active = item.id === tab;
         return (
           <button
-            key={t.id}
+            key={item.id}
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => setTab(t.id)}
+            onClick={() => setTab(item.id)}
             className={`relative z-10 flex items-center justify-center gap-2 rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors duration-200 ${
               active ? "text-ink" : "text-ink-muted hover:text-ink"
             }`}
@@ -101,9 +106,9 @@ function TabSwitch() {
             <span
               className={`transition-colors duration-200 [&>svg]:size-4 ${active ? "text-rose-500" : "text-ink-faint"}`}
             >
-              {t.icon}
+              {item.icon}
             </span>
-            {t.label}
+            {t.editor[item.id]}
           </button>
         );
       })}
@@ -144,6 +149,7 @@ function TopBar({ ui }: { ui: EditorUI }) {
   const renderTree = useRenderTree();
   const { design } = useDesign();
   const toast = useResumeStore((s) => s.toast);
+  const { t, fmt } = useI18n();
   const [downloading, setDownloading] = useState(false);
 
   const download = async () => {
@@ -157,10 +163,10 @@ function TopBar({ ui }: { ui: EditorUI }) {
         versionName: activeVersion.name,
         isBaseVersion: isBase,
       });
-      toast({ message: "PDF download started", kind: "success" });
+      toast({ message: "pdfStarted", kind: "success" });
     } catch (error) {
       console.error(error);
-      toast({ message: "Could not create the PDF. Please try again.", kind: "error" });
+      toast({ message: "pdfFailed", kind: "error" });
     } finally {
       setDownloading(false);
     }
@@ -172,7 +178,7 @@ function TopBar({ ui }: { ui: EditorUI }) {
         href="/"
         className="pressable flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink"
       >
-        <ArrowLeftIcon className="size-4 shrink-0 text-ink-faint" />
+        <ArrowLeftIcon className="size-4 shrink-0 text-ink-faint rtl:-scale-x-100" />
         <span className="max-w-40 truncate">{resumeName}</span>
       </Link>
 
@@ -187,17 +193,17 @@ function TopBar({ ui }: { ui: EditorUI }) {
           type="button"
           onClick={ui.openCustomizations}
           className="pressable hidden rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors duration-150 hover:bg-amber-100 md:block dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
-          title="See what differs from the Default"
+          title={t.editor.seeDifferences}
         >
-          {count} customization{count === 1 ? "" : "s"}
+          {fmt(t.editor.customizationCount, { n: count })}
         </button>
       )}
 
       <button
         type="button"
         onClick={ui.openSwitcher}
-        className="pressable ml-1 flex items-center gap-2 rounded-lg border border-hairline bg-surface py-1.5 pl-2.5 pr-2 text-[13px] font-medium text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong"
-        title="Switch version (Ctrl+K)"
+        className="pressable ms-1 flex items-center gap-2 rounded-lg border border-hairline bg-surface py-1.5 ps-2.5 pe-2 text-[13px] font-medium text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong"
+        title={t.editor.switchVersion}
       >
         <span className={`size-1.5 rounded-full ${isBase ? "bg-ink-faint" : "bg-rose-500"}`} />
         <span className="max-w-36 truncate">{activeVersion?.name}</span>
@@ -206,7 +212,7 @@ function TopBar({ ui }: { ui: EditorUI }) {
 
       <div className="mx-0.5 h-6 w-px bg-hairline" />
 
-      <IconButton onClick={ui.openManager} title="Manage versions">
+      <IconButton onClick={ui.openManager} title={t.editor.manageVersions}>
         <LayersIcon />
       </IconButton>
       <ThemeToggle />
@@ -215,11 +221,11 @@ function TopBar({ ui }: { ui: EditorUI }) {
         type="button"
         onClick={download}
         disabled={downloading}
-        className="pressable ml-1 flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 py-2 text-[12.5px] font-semibold text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong disabled:opacity-60"
-        title={`Download ${activeVersion?.name} as PDF`}
+        className="pressable ms-1 flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 py-2 text-[12.5px] font-semibold text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong disabled:opacity-60"
+        title={fmt(t.editor.downloadAsPdf, { name: activeVersion?.name ?? "" })}
       >
         <DownloadIcon className="size-3.5 text-ink-faint" />
-        {downloading ? "Preparing PDF…" : "Download"}
+        {downloading ? t.editor.preparingPdf : t.editor.download}
       </button>
 
       <button
@@ -228,7 +234,7 @@ function TopBar({ ui }: { ui: EditorUI }) {
         className="pressable flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-orange-400 px-3.5 py-2 text-[12.5px] font-semibold text-white shadow-card transition-all duration-150 hover:shadow-card-hover hover:brightness-[1.03]"
       >
         <PlusIcon className="size-3.5" />
-        New version
+        {t.editor.newVersion}
       </button>
     </header>
   );
@@ -327,7 +333,7 @@ function MainAndPreview({ tab }: { tab: EditorTab }) {
           {tab === "customize" ? <CustomizePanel /> : <EditorPanels tree={editorTree} />}
         </div>
       </div>
-      <div className="hidden w-[46%] min-w-0 shrink-0 overflow-y-auto border-l border-hairline bg-sunken px-8 py-6 lg:block">
+      <div className="hidden w-[46%] min-w-0 shrink-0 overflow-y-auto border-s border-hairline bg-sunken px-8 py-6 lg:block">
         <ResumePreview tree={renderTree} design={design} markCustomized={!isBase} />
       </div>
     </>

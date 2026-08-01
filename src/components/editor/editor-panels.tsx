@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { ChevronDownIcon, PlusIcon, UserIcon } from "@/components/ui/icons";
+import { useT } from "@/lib/i18n/provider";
+import { sectionTitle } from "@/lib/locale";
 import { enterDelay } from "@/lib/motion";
 import type { ResolvedTree } from "@/lib/resume/types";
-import { kindDefaults, useResumeStore } from "@/store/resume-store";
+import { kindDefaults, useDesign, useResumeStore } from "@/store/resume-store";
 import { AddContentDialog } from "./add-content-dialog";
 import { ProvenanceField } from "./provenance-field";
 import { SectionCard } from "./section-card";
@@ -12,6 +14,7 @@ import { useDragReorder } from "./use-drag-reorder";
 
 function PersonalDetailsCard({ tree }: { tree: ResolvedTree }) {
   const [expanded, setExpanded] = useState(true);
+  const t = useT();
   const header = tree.roots.find((n) => n.kind === "header");
   if (!header) return null;
   const name = typeof header.data.fullName === "string" ? header.data.fullName : "";
@@ -21,16 +24,18 @@ function PersonalDetailsCard({ tree }: { tree: ResolvedTree }) {
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className="pressable flex w-full items-center gap-3 px-5 py-4 text-left"
+        className="pressable flex w-full items-center gap-3 px-5 py-4 text-start"
       >
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sunken text-ink-muted">
           <UserIcon className="size-4.5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold tracking-tight text-ink">Personal details</span>
+          <span className="block text-[15px] font-semibold tracking-tight text-ink">
+            {t.content.personalDetails}
+          </span>
           {!expanded && (
             <span className="block truncate text-[11.5px] text-ink-faint">
-              {name || "Name, contact, summary"}
+              {name || t.content.personalDetailsHint}
             </span>
           )}
         </span>
@@ -41,21 +46,51 @@ function PersonalDetailsCard({ tree }: { tree: ResolvedTree }) {
       {expanded && (
         <div className="border-t border-hairline px-5 pb-5 pt-4">
           <div className="grid grid-cols-2 gap-3.5">
-            <ProvenanceField node={header} field="fullName" label="Full name" placeholder="Ada Lovelace" />
-            <ProvenanceField node={header} field="headline" label="Headline" placeholder="Software Engineer" />
-            <ProvenanceField node={header} field="email" label="Email" placeholder="you@example.com" />
-            <ProvenanceField node={header} field="phone" label="Phone" placeholder="+1 555 000 0000" />
-            <ProvenanceField node={header} field="location" label="Location" placeholder="City, Country" />
-            <ProvenanceField node={header} field="website" label="Website" placeholder="yoursite.dev" />
+            <ProvenanceField
+              node={header}
+              field="fullName"
+              label={t.content.fullName}
+              placeholder={t.content.fullNamePlaceholder}
+            />
+            <ProvenanceField
+              node={header}
+              field="headline"
+              label={t.content.headline}
+              placeholder={t.content.headlinePlaceholder}
+            />
+            <ProvenanceField
+              node={header}
+              field="email"
+              label={t.content.email}
+              placeholder={t.content.emailPlaceholder}
+            />
+            <ProvenanceField
+              node={header}
+              field="phone"
+              label={t.content.phone}
+              placeholder={t.content.phonePlaceholder}
+            />
+            <ProvenanceField
+              node={header}
+              field="location"
+              label={t.content.location}
+              placeholder={t.content.locationPlaceholder}
+            />
+            <ProvenanceField
+              node={header}
+              field="website"
+              label={t.content.website}
+              placeholder={t.content.websitePlaceholder}
+            />
           </div>
           <div className="mt-3.5">
             <ProvenanceField
               node={header}
               field="summary"
-              label="Summary"
+              label={t.content.summary}
               multiline
               rows={3}
-              placeholder="Two or three sentences that frame your profile…"
+              placeholder={t.content.summaryPlaceholder}
             />
           </div>
         </div>
@@ -68,6 +103,8 @@ export function EditorPanels({ tree }: { tree: ResolvedTree }) {
   const addNode = useResumeStore((s) => s.addNode);
   const moveNodeTo = useResumeStore((s) => s.moveNodeTo);
   const [picking, setPicking] = useState(false);
+  const { design } = useDesign();
+  const t = useT();
   const sections = tree.roots.filter((n) => n.kind === "section");
 
   // Sections are only part of the root list — the personal-details header sits
@@ -102,17 +139,20 @@ export function EditorPanels({ tree }: { tree: ResolvedTree }) {
           className="pressable flex items-center gap-2 rounded-full bg-gradient-to-r from-rose-500 to-orange-400 px-7 py-3 text-[13.5px] font-semibold text-white shadow-card transition-all duration-150 hover:shadow-card-hover hover:brightness-[1.03]"
         >
           <PlusIcon className="size-4.5" />
-          Add Content
+          {t.content.addContent}
         </button>
       </div>
 
       <AddContentDialog
         open={picking}
         onClose={() => setPicking(false)}
+        locale={design.language}
         onPick={(preset) =>
           addNode(null, "section", {
             ...kindDefaults("section"),
-            title: preset.title,
+            // Born in the CV's language, so an Arabic resume never gets an
+            // English heading that then has to be translated by hand.
+            title: sectionTitle(preset.type, design.language),
             sectionType: preset.type,
           })
         }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { useT } from "@/lib/i18n/provider";
 import { XIcon } from "./icons";
 
 export function Dialog({
@@ -18,6 +19,8 @@ export function Dialog({
   children: React.ReactNode;
   hideClose?: boolean;
 }) {
+  const t = useT();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -52,7 +55,7 @@ export function Dialog({
                 type="button"
                 onClick={onClose}
                 className="pressable rounded-lg p-1.5 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
-                aria-label="Close"
+                aria-label={t.common.close}
               >
                 <XIcon className="size-4" />
               </button>
@@ -71,7 +74,7 @@ export function ConfirmDialog({
   onConfirm,
   title,
   body,
-  confirmLabel = "Confirm",
+  confirmLabel,
   danger = false,
 }: {
   open: boolean;
@@ -82,6 +85,7 @@ export function ConfirmDialog({
   confirmLabel?: string;
   danger?: boolean;
 }) {
+  const t = useT();
   return (
     <Dialog open={open} onClose={onClose} title={title} width="max-w-md">
       <div className="px-6 py-5 text-[13.5px] leading-relaxed text-ink-muted">{body}</div>
@@ -91,7 +95,7 @@ export function ConfirmDialog({
           onClick={onClose}
           className="pressable rounded-lg px-3.5 py-2 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink"
         >
-          Cancel
+          {t.common.cancel}
         </button>
         <button
           type="button"
@@ -105,7 +109,7 @@ export function ConfirmDialog({
               : "bg-gradient-to-r from-rose-500 to-orange-400 hover:brightness-[1.03]"
           }`}
         >
-          {confirmLabel}
+          {confirmLabel ?? t.common.confirm}
         </button>
       </div>
     </Dialog>

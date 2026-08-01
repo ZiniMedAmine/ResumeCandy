@@ -1,7 +1,8 @@
 "use client";
 
 import type { jsPDF } from "jspdf";
-import { PAGE_FORMATS, type DesignSettings, type FontId } from "@/lib/design";
+import { PAGE_FORMATS, formatResumeDate, isRtl, type DesignSettings, type FontId } from "@/lib/design";
+import { localeOf } from "@/lib/locale";
 import type { ResolvedNode } from "@/lib/resume/types";
 
 type PdfDocument = jsPDF;
@@ -54,6 +55,32 @@ const PDF_FONT_REGISTRY: Record<FontId, PdfFontRegistration> = {
       italic: "/pdf-fonts/Geist-Italic.ttf",
     },
   },
+  // Arabic script has no italic tradition, so the upright face is registered
+  // for the italic style too: a real Naskh is the correct rendering of an
+  // "italic" subtitle, and a synthetic oblique would just look broken.
+  //
+  // Both families carry a full Latin set as well as Arabic, which is a hard
+  // requirement rather than a nicety: jsPDF binds one font per run with no
+  // fallback, so an Arabic-only face would silently drop every email address,
+  // URL and Latin company name from the exported PDF.
+  naskh: {
+    family: "ResumeCandyAmiri",
+    fallback: "times",
+    files: {
+      normal: "/pdf-fonts/Amiri-Regular.ttf",
+      bold: "/pdf-fonts/Amiri-Bold.ttf",
+      italic: "/pdf-fonts/Amiri-Regular.ttf",
+    },
+  },
+  arabicSans: {
+    family: "ResumeCandyIBMPlexSansArabic",
+    fallback: "helvetica",
+    files: {
+      normal: "/pdf-fonts/IBMPlexSansArabic-Regular.ttf",
+      bold: "/pdf-fonts/IBMPlexSansArabic-Bold.ttf",
+      italic: "/pdf-fonts/IBMPlexSansArabic-Regular.ttf",
+    },
+  },
   georgia: { family: "times", fallback: "times" },
   times: { family: "times", fallback: "times" },
   garamond: { family: "times", fallback: "times" },
@@ -93,6 +120,9 @@ export async function createResumePdf(input: ResumePdfInput): Promise<PdfDocumen
     author: headerOf(input.tree.roots)?.data.fullName as string | undefined,
     keywords: "resume,curriculum vitae,CV",
   });
+
+  // Tells readers to page right-to-left and put the scrollbar on the left.
+  if (isRtl(input.design)) document.viewerPreferences({ Direction: "R2L" });
 
   const font = await registerPdfFont(document, input.design);
   const writer = new PdfWriter(document, input.design, page.width * MM_PER_CSS_PIXEL, page.height * MM_PER_CSS_PIXEL, font);
@@ -168,6 +198,8 @@ class PdfWriter {
   private readonly baseSize: number;
   private readonly lineHeight: number;
   private readonly sectionSpacing: number;
+  private readonly design: DesignSettings;
+  private readonly rtl: boolean;
   private y: number;
   private firstPageBodyY: number;
   private columns: Record<"main" | "side", ColumnCursor> | null = null;
@@ -184,8 +216,67 @@ class PdfWriter {
     this.baseSize = design.fontSize * 0.75;
     this.lineHeight = this.baseSize * design.lineHeight * 0.3528;
     this.sectionSpacing = design.sectionSpacing;
+    this.design = design;
+    this.rtl = isRtl(design);
     this.y = this.marginY;
     this.firstPageBodyY = this.marginY;
+  }
+
+  /* ------------------------------- direction ------------------------------- */
+
+  /**
+   * Mirrors an absolute x about the page centre when the CV reads right to
+   * left.
+   *
+   * Because the content box is symmetric — the same marginX on both edges —
+   * the mirror of x is simply `width - x`. Every measurement above this line
+   * stays in one coordinate system, and only the moment of drawing flips,
+   * which is why the column cursors, entry widths and bullet indents need no
+   * RTL branches of their own: `main` starting at marginX mirrors onto the
+   * right-hand side of the sheet on its own.
+   */
+  private mx(x: number): number {
+    return this.rtl ? this.width - x : x;
+  }
+
+  /** Top-left corner for a rectangle whose reading start is at `x`. */
+  private rectX(x: number, w: number): number {
+    return this.rtl ? this.width - x - w : x;
+  }
+
+  /**
+   * jsPDF's bidi engine is a pass-through by default (`isInputVisual: true`).
+   * Stored text is in logical order, so RTL output needs a real reorder into
+   * the visual order a PDF draws glyphs in.
+   *
+   * `isOutputRtl` has to be pinned false: left undefined, jsPDF infers it from
+   * the string itself and an Arabic line would be flipped straight back into
+   * logical order. `isInputRtl` is deliberately left undefined so each line
+   * takes its base direction from its own first strong character — a Latin
+   * company name or URL inside an Arabic résumé still reads left to right.
+   */
+  private opts(align: "left" | "right" | "center") {
+    return this.rtl
+      ? { align, isInputVisual: false, isOutputVisual: true, isOutputRtl: false }
+      : { align };
+  }
+
+  /** Draws text whose reading start sits at `x`. */
+  private put(value: string, x: number, baseline: number) {
+    this.doc.text(value, this.mx(x), baseline, this.opts(this.rtl ? "right" : "left"));
+  }
+
+  /** Draws text whose reading end sits at `x`. */
+  private putEnd(value: string, x: number, baseline: number) {
+    this.doc.text(value, this.mx(x), baseline, this.opts(this.rtl ? "left" : "right"));
+  }
+
+  /** A date range in the CV's language and chosen format. */
+  private dates(data: Record<string, unknown>): string {
+    const start = formatResumeDate(text(data.startDate), this.design);
+    const end = formatResumeDate(text(data.endDate), this.design);
+    const sep = localeOf(this.design.language).rangeSeparator;
+    return start && end ? `${start} ${sep} ${end}` : start || end;
   }
 
   classicHeader(node: ResolvedNode) {
@@ -232,16 +323,16 @@ class PdfWriter {
     this.ensure(needed);
 
     this.setText(1.9, "bold", "#18181b");
-    this.doc.text(name, this.marginX, this.y + 6);
+    this.put(name, this.marginX, this.y + 6);
     this.y += 8;
     if (headline) {
       this.setText(1.05, "bold", this.accent);
-      this.doc.text(headline, this.marginX, this.y + 3);
+      this.put(headline, this.marginX, this.y + 3);
       this.y += 6;
     }
     if (contacts.length) {
       this.setText(0.85, "normal", "#52525b");
-      this.doc.text(contacts.join("  ·  "), this.marginX, this.y + 3);
+      this.put(contacts.join("  ·  "), this.marginX, this.y + 3);
       this.y += 5.5;
     }
     if (summaryLines.length) {
@@ -250,7 +341,7 @@ class PdfWriter {
       this.y += 2;
     }
     this.doc.setFillColor(this.accent);
-    this.doc.roundedRect(this.marginX, this.y + 1, 11, 1.1, 0.55, 0.55, "F");
+    this.doc.roundedRect(this.rectX(this.marginX, 11), this.y + 1, 11, 1.1, 0.55, 0.55, "F");
     this.y += 7;
     this.firstPageBodyY = this.y;
   }
@@ -292,7 +383,7 @@ class PdfWriter {
     this.setPage(active.page);
     this.setText(0.88, "bold", "#18181b");
     this.doc.setFillColor(this.accent);
-    this.doc.roundedRect(active.x, active.y + 0.5, 1.05, 4.3, 0.5, 0.5, "F");
+    this.doc.roundedRect(this.rectX(active.x, 1.05), active.y + 0.5, 1.05, 4.3, 0.5, 0.5, "F");
     this.writeColumnLines(column, titleLines, active.x + 3);
     this.advanceColumn(column, 1.8);
     for (const child of section.children) this.modernItem(child, column, column === "side");
@@ -308,13 +399,13 @@ class PdfWriter {
       case "education": {
         const primary = node.kind === "experience" ? text(d.title) || "Role" : [text(d.degree), text(d.field)].filter(Boolean).join(" — ") || "Degree";
         const secondary = node.kind === "experience" ? text(d.company) : text(d.school);
-        const meta = dateRange(d) || text(d.location);
+        const meta = this.dates(d) || text(d.location);
         this.entryHeader(primary, secondary, meta, this.marginX, available, false);
         this.bullets(node.children, undefined);
         break;
       }
       case "project":
-        this.entryHeader(text(d.name) || "Project", text(d.url), dateRange(d), this.marginX, available, false);
+        this.entryHeader(text(d.name) || "Project", text(d.url), this.dates(d), this.marginX, available, false);
         this.paragraph(text(d.description), this.marginX, available, 0.95);
         this.bullets(node.children, undefined);
         break;
@@ -344,12 +435,12 @@ class PdfWriter {
       case "education": {
         const primary = node.kind === "experience" ? text(d.title) || "Role" : [text(d.degree), text(d.field)].filter(Boolean).join(", ") || "Degree";
         const secondary = node.kind === "experience" ? [text(d.company), text(d.location)].filter(Boolean).join(" · ") : [text(d.school), text(d.location)].filter(Boolean).join(" · ");
-        this.columnEntryHeader(column, primary, secondary, dateRange(d), compact);
+        this.columnEntryHeader(column, primary, secondary, this.dates(d), compact);
         this.columnBullets(column, node.children);
         break;
       }
       case "project":
-        this.columnEntryHeader(column, text(d.name) || "Project", text(d.url), dateRange(d), compact);
+        this.columnEntryHeader(column, text(d.name) || "Project", text(d.url), this.dates(d), compact);
         this.columnParagraph(column, text(d.description), 0.95);
         this.columnBullets(column, node.children);
         break;
@@ -380,7 +471,7 @@ class PdfWriter {
     this.writeLines(lines, x);
     if (meta) {
       this.setText(0.88, "normal", "#52525b");
-      this.doc.text(meta, x + width, this.y - (lines.length - 1) * this.lineHeight, { align: "right" });
+      this.putEnd(meta, x + width, this.y - (lines.length - 1) * this.lineHeight);
     }
     if (secondary) {
       this.setText(0.95, compact ? "normal" : "italic", this.accent);
@@ -399,7 +490,7 @@ class PdfWriter {
     if (meta) {
       const now = this.cursor(column);
       this.setText(0.82, "normal", "#71717a");
-      this.doc.text(meta, now.x + now.width, now.y - (lines.length - 1) * this.lineHeight, { align: "right" });
+      this.putEnd(meta, now.x + now.width, now.y - (lines.length - 1) * this.lineHeight);
     }
     if (secondary) {
       this.setText(compact ? 0.82 : 0.92, compact ? "normal" : "bold", compact ? "#71717a" : this.accent);
@@ -421,7 +512,7 @@ class PdfWriter {
     this.ensure(lines.length * this.lineHeight);
     this.setText(0.95, "normal", "#3f3f46");
     this.doc.setFillColor("#3f3f46");
-    this.doc.circle(this.marginX + 1, this.y + this.lineHeight * 0.45, 0.55, "F");
+    this.doc.circle(this.mx(this.marginX + 1), this.y + this.lineHeight * 0.45, 0.55, "F");
     this.writeLines(lines, this.marginX + 3);
   }
 
@@ -437,7 +528,7 @@ class PdfWriter {
     this.setPage(active.page);
     this.setText(0.95, "normal", "#3f3f46");
     this.doc.setFillColor(this.accent);
-    this.doc.circle(active.x + 0.9, active.y + this.lineHeight * 0.45, 0.45, "F");
+    this.doc.circle(this.mx(active.x + 0.9), active.y + this.lineHeight * 0.45, 0.45, "F");
     this.writeColumnLines(column, lines, active.x + 2.5);
   }
 
@@ -467,14 +558,14 @@ class PdfWriter {
     const lines = this.lines(value, Math.max(1, width - prefixWidth), 0.95, "normal");
     this.ensure(Math.max(1, lines.length) * this.lineHeight);
     this.setText(0.95, "bold", "#18181b");
-    this.doc.text(prefix, x, this.y + this.lineHeight * 0.78);
+    this.put(prefix, x, this.y + this.lineHeight * 0.78);
     this.setText(0.95, "normal", "#3f3f46");
     if (lines.length) {
-      this.doc.text(lines[0], x + prefixWidth, this.y + this.lineHeight * 0.78);
+      this.put(lines[0], x + prefixWidth, this.y + this.lineHeight * 0.78);
       this.y += this.lineHeight;
       for (const line of lines.slice(1)) {
         this.ensure(this.lineHeight);
-        this.doc.text(line, x, this.y + this.lineHeight * 0.78);
+        this.put(line, x, this.y + this.lineHeight * 0.78);
         this.y += this.lineHeight;
       }
     } else this.y += this.lineHeight;
@@ -491,16 +582,16 @@ class PdfWriter {
     this.ensureColumn(column, Math.max(1, lines.length) * this.lineHeight);
     const active = this.cursor(column);
     this.setText(0.95, "bold", "#18181b");
-    this.doc.text(prefix, active.x, active.y + this.lineHeight * 0.78);
+    this.put(prefix, active.x, active.y + this.lineHeight * 0.78);
     this.setText(0.95, "normal", "#3f3f46");
     if (lines.length) {
-      this.doc.text(lines[0], active.x + prefixWidth, active.y + this.lineHeight * 0.78);
+      this.put(lines[0], active.x + prefixWidth, active.y + this.lineHeight * 0.78);
       this.advanceColumn(column, this.lineHeight);
       for (const line of lines.slice(1)) {
         this.ensureColumn(column, this.lineHeight);
         const next = this.cursor(column);
         this.setPage(next.page);
-        this.doc.text(line, next.x, next.y + this.lineHeight * 0.78);
+        this.put(line, next.x, next.y + this.lineHeight * 0.78);
         this.advanceColumn(column, this.lineHeight);
       }
     } else this.advanceColumn(column, this.lineHeight);
@@ -553,13 +644,13 @@ class PdfWriter {
   }
 
   private center(value: string, baseline: number) {
-    this.doc.text(value, this.width / 2, baseline, { align: "center" });
+    this.doc.text(value, this.width / 2, baseline, this.opts("center"));
   }
 
   private writeLines(lines: string[], x: number) {
     for (const line of lines) {
       this.ensure(this.lineHeight);
-      this.doc.text(line, x, this.y + this.lineHeight * 0.78);
+      this.put(line, x, this.y + this.lineHeight * 0.78);
       this.y += this.lineHeight;
     }
   }
@@ -569,7 +660,7 @@ class PdfWriter {
       this.ensureColumn(column, this.lineHeight);
       const cursor = this.cursor(column);
       this.setPage(cursor.page);
-      this.doc.text(line, x, cursor.y + this.lineHeight * 0.78);
+      this.put(line, x, cursor.y + this.lineHeight * 0.78);
       this.advanceColumn(column, this.lineHeight);
     }
   }
@@ -620,12 +711,6 @@ interface ColumnCursor {
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function dateRange(data: Record<string, unknown>): string {
-  const start = text(data.startDate);
-  const end = text(data.endDate);
-  return start && end ? `${start} – ${end}` : start || end;
 }
 
 function contactValues(data: Record<string, unknown>): string[] {

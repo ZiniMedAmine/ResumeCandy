@@ -6,6 +6,7 @@ import type { ResolvedNode } from "@/lib/resume/types";
 import { flattenOverrides, useResumeStore } from "@/store/resume-store";
 import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { CopyIcon, UndoIcon, UploadIcon } from "@/components/ui/icons";
+import { useI18n } from "@/lib/i18n/provider";
 import { useEditorUI } from "./editor-ui-context";
 
 /** True when this version overrides the field (rather than inheriting it). */
@@ -43,6 +44,7 @@ export function FieldFrame({
   const overrides = useResumeStore((s) => s.overrides);
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
   const ui = useEditorUI();
+  const { t, fmt } = useI18n();
 
   const activeVersion = versions.find((v) => v.id === activeVersionId);
   const onBase = activeVersion?.isBase === 1 || activeVersion?.isBase === true;
@@ -72,22 +74,22 @@ export function FieldFrame({
                 <button
                   type="button"
                   className="pressable flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 transition-colors duration-150 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
-                  title="This field is customized in this version"
+                  title={t.provenance.customizedField}
                 >
                   <span className="size-1.5 rounded-full bg-amber-400" />
-                  Customized
+                  {t.provenance.customized}
                 </button>
               }
             >
               <MenuItem icon={<UndoIcon />} onSelect={() => resetField(node.id, field)}>
-                Reset to Default
+                {t.provenance.resetToDefault}
               </MenuItem>
               <MenuItem icon={<UploadIcon />} onSelect={() => pushFieldToBase(node.id, field)}>
-                Push to Default
+                {t.provenance.pushToDefault}
               </MenuItem>
               <MenuSeparator />
               <MenuItem icon={<CopyIcon />} onSelect={() => ui.openCopyField(node.id, field, value)}>
-                Copy to versions…
+                {t.provenance.copyToVersions}
               </MenuItem>
             </Menu>
           )}
@@ -95,8 +97,11 @@ export function FieldFrame({
       )}
       {children}
       {counter && (
-        <div className="pointer-events-none absolute -bottom-5 left-0 z-10 rounded-full bg-ink px-2 py-0.5 text-[10.5px] font-medium text-canvas shadow-card">
-          Updates {counter.inheriting} of {counter.total} versions
+        <div className="pointer-events-none absolute -bottom-5 start-0 z-10 rounded-full bg-ink px-2 py-0.5 text-[10.5px] font-medium text-canvas shadow-card">
+          {fmt(t.provenance.updatesVersions, {
+            inheriting: counter.inheriting,
+            total: counter.total,
+          })}
         </div>
       )}
     </div>
@@ -151,6 +156,10 @@ export function ProvenanceField({
   const sharedProps = {
     value,
     placeholder,
+    // Each field follows its own content rather than the CV's language: an
+    // Arabic resume still has a Latin email address and Latin URLs, and
+    // forcing those RTL would render them backwards while typing.
+    dir: "auto" as const,
     onFocus: () => setFocused(true),
     onBlur: () => setFocused(false),
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>

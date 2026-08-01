@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { db, tables } from "@/db";
 import { getCollection } from "@/lib/data";
 import { assertOwnsResume } from "@/lib/server/mutations";
-import { TEMPLATES, type TemplateId } from "@/lib/design";
+import { TEMPLATE_IDS, type TemplateId } from "@/lib/design";
+import { LOCALE_LIST, sectionTitle } from "@/lib/locale";
 import { ranksBetween } from "@/lib/resume/rank";
 
 const { nodes, resumes, versions } = tables;
@@ -24,16 +25,25 @@ function slugify(name: string): string {
  * Create a resume with its Default version and a standard skeleton:
  * header + the common sections, ready to fill in.
  *
- * An optional `template` field carries the choice made before creation; it
- * becomes the resume's base design, which every version then inherits.
+ * Optional `template` and `language` fields carry the choices made before
+ * creation; they become the resume's base design, which every version then
+ * inherits. The skeleton's headings are written in that language from the
+ * start, so an Arabic resume never opens full of English to translate.
  */
 export async function createResume(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim() || "Untitled resume";
   const requested = String(formData.get("template") ?? "");
-  const template = TEMPLATES.find((t) => t.id === requested)?.id as TemplateId | undefined;
+  const template = TEMPLATE_IDS.find((id) => id === requested) as TemplateId | undefined;
+  const requestedLocale = String(formData.get("language") ?? "");
+  const language = LOCALE_LIST.find((l) => l.id === requestedLocale)?.id;
+  const skeletonLocale = language ?? "en";
   const collection = await getCollection();
   const resumeId = nanoid();
   const versionId = nanoid();
+
+  const settings: Record<string, unknown> = {};
+  if (template) settings.template = template;
+  if (language) settings.language = language;
 
   db.transaction((tx) => {
     tx.insert(resumes)
@@ -42,7 +52,7 @@ export async function createResume(formData: FormData) {
         collectionId: collection.id,
         name,
         slug: slugify(name),
-        settings: template ? { template } : null,
+        settings: Object.keys(settings).length ? settings : null,
       })
       .run();
     tx.insert(versions)
@@ -69,42 +79,15 @@ export async function createResume(formData: FormData) {
           },
           ownerVersionId: null,
         },
-        {
+        ...(["experience", "education", "skills", "projects"] as const).map((sectionType, i) => ({
           id: nanoid(),
           resumeId,
           parentId: null,
-          kind: "section",
-          rank: ranks[1],
-          data: { title: "Work Experience", sectionType: "experience" },
+          kind: "section" as const,
+          rank: ranks[i + 1],
+          data: { title: sectionTitle(sectionType, skeletonLocale), sectionType },
           ownerVersionId: null,
-        },
-        {
-          id: nanoid(),
-          resumeId,
-          parentId: null,
-          kind: "section",
-          rank: ranks[2],
-          data: { title: "Education", sectionType: "education" },
-          ownerVersionId: null,
-        },
-        {
-          id: nanoid(),
-          resumeId,
-          parentId: null,
-          kind: "section",
-          rank: ranks[3],
-          data: { title: "Skills", sectionType: "skills" },
-          ownerVersionId: null,
-        },
-        {
-          id: nanoid(),
-          resumeId,
-          parentId: null,
-          kind: "section",
-          rank: ranks[4],
-          data: { title: "Projects", sectionType: "projects" },
-          ownerVersionId: null,
-        },
+        })),
       ])
       .run();
   });

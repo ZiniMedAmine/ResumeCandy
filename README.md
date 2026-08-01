@@ -68,6 +68,34 @@ accent color (presets + custom hex), font family, font size, line height,
 section spacing, page margins. Each template carries a natural typeface until
 a font family is chosen explicitly.
 
+## Resume language (English · Français · العربية)
+
+The language a résumé is *written in* is one more design setting, so it layers
+like the rest: a resume has a base language and any version can override it.
+"My CV in French" is therefore just a version — and because a version already
+means "a variant that differs in specific fields", the override list doubles as
+translation progress. Create the version, pick the language, and rewrite fields
+as you go.
+
+Language drives text direction, date wording (`Present` → `Présent` → `حتى
+الآن`), optional Arabic-Indic numerals, and which fonts are offered. Section
+headings you never renamed are translated with it; anything you titled yourself
+is left alone. This is separate from the language of the *interface*, which is
+English throughout — `locale.ts` holds what gets printed on the paper,
+`sections.ts` holds what the app says about it.
+
+Arabic reads right-to-left on screen and in the PDF: the paper mirrors, the
+sidebar swaps sides, and dates, entry meta and bullet dots follow. Individual
+runs use `dir="auto"`, so an email address, a URL or a not-yet-translated
+English line still reads correctly on an Arabic page.
+
+The PDF path has two constraints worth knowing before touching the fonts —
+both are documented in `public/pdf-fonts/LICENSES.md`. jsPDF shapes Arabic by
+substituting Presentation Forms-B codepoints, so the embedded face must carry
+that legacy block; and jsPDF binds one font per run with no fallback, so the
+face must cover Latin too or every email address silently vanishes from the
+export. Amiri and IBM Plex Sans Arabic satisfy both.
+
 ## Pages
 
 The preview is laid out on real sheets of the chosen size (A4 and US Letter

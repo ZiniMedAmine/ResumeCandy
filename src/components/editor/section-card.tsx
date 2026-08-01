@@ -15,6 +15,7 @@ import {
   UndoIcon,
 } from "@/components/ui/icons";
 import { sectionIcon } from "@/components/ui/section-icons";
+import { useI18n } from "@/lib/i18n/provider";
 import { sectionPreset } from "@/lib/sections";
 import { isHiddenFlag, type ResolvedNode, type SectionType } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
@@ -54,6 +55,7 @@ export function SectionCard({
   const overrides = useResumeStore((s) => s.overrides);
   const nodes = useResumeStore((s) => s.nodes);
   const ui = useEditorUI();
+  const { t, fmt } = useI18n();
 
   const [collapsed, setCollapsed] = useState(false);
   const [editingHeading, setEditingHeading] = useState(false);
@@ -109,8 +111,8 @@ export function SectionCard({
         {/* Pressing the grip is what makes the card draggable at all. */}
         <span
           {...handleProps}
-          className="-ml-2 flex size-6 shrink-0 cursor-grab items-center justify-center text-ink-faint/40 transition-colors duration-150 select-none group-hover/section:text-ink-faint active:cursor-grabbing"
-          title="Drag to reorder section"
+          className="-ms-2 flex size-6 shrink-0 cursor-grab items-center justify-center text-ink-faint/40 transition-colors duration-150 select-none group-hover/section:text-ink-faint active:cursor-grabbing"
+          title={t.section.dragToReorder}
         >
           <GripIcon className="size-4" />
         </span>
@@ -132,12 +134,14 @@ export function SectionCard({
               className="pressable flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1.5 text-[12px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink"
             >
               <CheckIcon className="size-3.5" />
-              Done
+              {t.common.done}
             </button>
           </div>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <h3 className="truncate text-[15px] font-semibold tracking-tight text-ink">
+            {/* The heading is résumé content, so it follows the document's
+                own direction rather than the interface's. */}
+            <h3 dir="auto" className="truncate text-[15px] font-semibold tracking-tight text-ink">
               {String(node.data.title ?? "")}
             </h3>
             <button
@@ -146,12 +150,16 @@ export function SectionCard({
               className="pressable flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1 text-[11.5px] font-medium text-ink-muted opacity-0 transition-all duration-150 hover:bg-sunken hover:text-ink group-hover/section:opacity-100"
             >
               <PencilIcon className="size-3" />
-              Edit heading
+              {t.section.editHeading}
             </button>
             {collapsed && (
               <span className="shrink-0 text-[11.5px] text-ink-faint">
-                {visibleCount === 0 ? "Empty" : `${visibleCount} entr${visibleCount === 1 ? "y" : "ies"}`}
-                {hasCustomizations && <span className="ml-1.5 text-amber-500">· customized</span>}
+                {visibleCount === 0
+                  ? t.section.empty
+                  : fmt(t.section.entryCount, { n: visibleCount })}
+                {hasCustomizations && (
+                  <span className="ms-1.5 text-amber-500">· {t.section.customized}</span>
+                )}
               </span>
             )}
           </div>
@@ -161,18 +169,18 @@ export function SectionCard({
           <Menu
             align="end"
             trigger={
-              <button type="button" className={iconBtn} title="Section options">
+              <button type="button" className={iconBtn} title={t.section.options}>
                 <DotsIcon className="size-4" />
               </button>
             }
           >
             <MenuItem icon={<EyeOffIcon />} onSelect={() => setHidden(node.id, true)}>
-              Hide in this version
+              {t.section.hideInVersion}
             </MenuItem>
             {hasCustomizations && (
               <>
                 <MenuItem icon={<UndoIcon />} onSelect={() => resetScope(node.id)}>
-                  Reset section to Default
+                  {t.section.resetToDefault}
                 </MenuItem>
                 <MenuItem
                   icon={<CopyIcon />}
@@ -180,7 +188,7 @@ export function SectionCard({
                     ui.openCopyCustomizations(Object.keys(forVersion).filter((nid) => subtreeIds.has(nid)))
                   }
                 >
-                  Copy section customizations…
+                  {t.section.copyCustomizations}
                 </MenuItem>
               </>
             )}
@@ -192,21 +200,15 @@ export function SectionCard({
                   icon={<TrashIcon />}
                   onSelect={() =>
                     ui.confirm({
-                      title: `Delete section “${String(node.data.title)}”?`,
-                      body: (
-                        <>
-                          The section and everything inside it will be deleted from the Default{" "}
-                          <strong>and every version</strong>. This cannot be scoped to one version —
-                          hide it there instead.
-                        </>
-                      ),
-                      confirmLabel: "Delete everywhere",
+                      title: fmt(t.section.deleteTitle, { name: String(node.data.title ?? "") }),
+                      body: t.section.deleteBody,
+                      confirmLabel: t.section.deleteEverywhere,
                       danger: true,
                       onConfirm: () => deleteNodeHard(node.id),
                     })
                   }
                 >
-                  Delete from all versions
+                  {t.section.deleteFromAll}
                 </MenuItem>
               </>
             )}
@@ -217,7 +219,7 @@ export function SectionCard({
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           className="pressable shrink-0 rounded-lg p-1.5 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
-          aria-label={collapsed ? "Expand section" : "Collapse section"}
+          aria-label={collapsed ? t.section.expand : t.section.collapse}
         >
           <ChevronDownIcon className={`size-4.5 transition-transform duration-200 ${collapsed ? "" : "rotate-180"}`} />
         </button>
@@ -249,9 +251,11 @@ export function SectionCard({
               className="pressable flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-5 py-2 text-[13px] font-semibold text-ink shadow-card transition-all duration-150 hover:border-rose-300 hover:text-rose-500"
             >
               <PlusIcon className="size-4" />
-              {preset.addLabel}
+              {t.sections.add[preset.addKey]}
               {!onBase && (
-                <span className="text-[11px] font-normal text-ink-faint">(only in this version)</span>
+                <span className="text-[11px] font-normal text-ink-faint">
+                  {t.section.onlyInThisVersion}
+                </span>
               )}
             </button>
           </div>

@@ -23,7 +23,7 @@ export function Toggle({
         role="checkbox"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className="pressable group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-1 text-left"
+        className="pressable group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-1 text-start"
       >
         <span
           className={`flex size-4.5 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150 ${

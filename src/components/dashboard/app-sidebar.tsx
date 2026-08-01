@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
 import { FileIcon, LayersIcon, SignOutIcon, UserIcon } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useT } from "@/lib/i18n/provider";
 
 const NAV = [
-  { href: "/", label: "Resumes", icon: FileIcon },
-  { href: "/account", label: "My account", icon: UserIcon },
-];
+  { href: "/", key: "resumes", icon: FileIcon },
+  { href: "/account", key: "account", icon: UserIcon },
+] as const;
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -18,9 +19,16 @@ function initials(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-/** Persistent navigation for the dashboard (the editor runs full-bleed). */
+/**
+ * Persistent navigation for the dashboard (the editor runs full-bleed).
+ *
+ * Nothing here positions itself physically: the rail is the first child of a
+ * flex row, so an RTL interface moves it to the right side of the window on
+ * its own.
+ */
 export function AppSidebar({ user }: { user: { name: string; email: string } }) {
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-72 shrink-0 p-5 md:block">
@@ -32,11 +40,14 @@ export function AppSidebar({ user }: { user: { name: string; email: string } }) 
           <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-orange-400 text-white shadow-card transition-transform duration-150 group-hover:scale-105">
             <LayersIcon className="size-5.5" />
           </span>
-          <span className="text-[19px] font-bold tracking-tight text-ink">ResumeCandy</span>
+          {/* The product name is a proper noun and stays Latin in every UI. */}
+          <span dir="ltr" className="text-[19px] font-bold tracking-tight text-ink">
+            {t.app.name}
+          </span>
         </Link>
 
         <nav className="space-y-1.5">
-          {NAV.map(({ href, label, icon: Icon }) => {
+          {NAV.map(({ href, key, icon: Icon }) => {
             const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
@@ -49,7 +60,7 @@ export function AppSidebar({ user }: { user: { name: string; email: string } }) 
                 }`}
               >
                 <Icon className={`size-5 ${active ? "text-rose-500" : "text-ink-faint"}`} />
-                {label}
+                {t.sidebar[key]}
               </Link>
             );
           })}
@@ -68,24 +79,26 @@ export function AppSidebar({ user }: { user: { name: string; email: string } }) 
             </span>
             <span className="min-w-0">
               <span className="block truncate text-[14px] font-semibold text-ink">{user.name}</span>
-              <span className="block truncate text-[12px] text-ink-faint">{user.email}</span>
+              <span dir="ltr" className="block truncate text-[12px] text-ink-faint text-start">
+                {user.email}
+              </span>
             </span>
           </Link>
           <form action={signOut} className="shrink-0">
             <button
               type="submit"
-              title="Sign out"
-              aria-label="Sign out"
+              title={t.sidebar.signOut}
+              aria-label={t.sidebar.signOut}
               className="pressable rounded-lg p-2 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
             >
-              <SignOutIcon className="size-5" />
+              <SignOutIcon className="size-5 rtl:-scale-x-100" />
             </button>
           </form>
         </div>
 
         <div className="flex items-center justify-between gap-2 px-1 pb-1">
           <p className="px-2 text-[13px] leading-relaxed text-ink-faint">
-            Stored on this machine.
+            {t.sidebar.storedLocally}
           </p>
           <ThemeToggle className="shrink-0 [&>svg]:size-5" />
         </div>

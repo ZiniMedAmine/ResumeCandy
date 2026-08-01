@@ -9,6 +9,7 @@ import {
   initialPickerYear,
   parseDateValue,
 } from "@/lib/date-value";
+import { useI18n, useT } from "@/lib/i18n/provider";
 import type { ResolvedNode } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { FieldFrame, fieldControlClass, useIsCustomized } from "./provenance-field";
@@ -30,6 +31,7 @@ function MonthPicker({
   openUp: boolean;
 }) {
   const parsed = parseDateValue(value);
+  const { t, fmt } = useI18n();
   const [year, setYear] = useState(() => initialPickerYear(value));
   const [customDraft, setCustomDraft] = useState(parsed.custom ?? "");
 
@@ -37,27 +39,27 @@ function MonthPicker({
     <div
       className={`absolute z-40 w-64 rounded-xl border border-hairline bg-surface p-3 shadow-pop ${
         openUp ? "bottom-full mb-2" : "top-full mt-2"
-      } left-0`}
+      } start-0`}
       role="dialog"
-      aria-label="Choose a date"
+      aria-label={t.date.choose}
     >
       <div className="mb-2.5 flex items-center justify-between">
         <button
           type="button"
           onClick={() => setYear((y) => y - 1)}
           className="pressable rounded-lg p-1.5 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
-          aria-label="Previous year"
+          aria-label={t.date.previousYear}
         >
-          <ChevronLeftIcon className="size-4" />
+          <ChevronLeftIcon className="size-4 rtl:-scale-x-100" />
         </button>
         <span className="text-[13.5px] font-semibold tabular-nums text-ink">{year}</span>
         <button
           type="button"
           onClick={() => setYear((y) => y + 1)}
           className="pressable rounded-lg p-1.5 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
-          aria-label="Next year"
+          aria-label={t.date.nextYear}
         >
-          <ChevronRightIcon className="size-4" />
+          <ChevronRightIcon className="size-4 rtl:-scale-x-100" />
         </button>
       </div>
 
@@ -97,9 +99,10 @@ function MonthPicker({
               ? "bg-rose-500 text-white"
               : "bg-sunken text-ink-muted hover:text-ink"
           }`}
-          title="Use the year without a month"
+          title={t.date.yearOnlyHint}
         >
-          {year} only
+          {/* A year is an identifier, not a quantity: no thousands separator. */}
+          {fmt(t.date.yearOnly, { year: String(year) })}
         </button>
         {allowPresent && (
           <button
@@ -123,7 +126,7 @@ function MonthPicker({
           }}
           className="pressable rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
         >
-          Clear
+          {t.date.clear}
         </button>
       </div>
 
@@ -137,12 +140,12 @@ function MonthPicker({
         }}
       >
         <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-faint">
-          Custom text
+          {t.date.customText}
         </label>
         <input
           value={customDraft}
           onChange={(e) => setCustomDraft(e.target.value)}
-          placeholder="e.g. Summer 2023"
+          placeholder={t.date.customPlaceholder}
           className="w-full rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-[12.5px] text-ink outline-none transition-colors duration-150 focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10"
         />
       </form>
@@ -170,6 +173,7 @@ export function DateField({
   allowPresent?: boolean;
 }) {
   const editField = useResumeStore((s) => s.editField);
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [openUp, setOpenUp] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -215,20 +219,20 @@ export function DateField({
               if (rect) setOpenUp(window.innerHeight - rect.bottom < POPOVER_HEIGHT);
               setOpen((o) => !o);
             }}
-            className="pressable flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left"
+            className="pressable flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-start"
           >
             <CalendarIcon className="size-4 shrink-0 text-ink-faint" />
-            <span className={`truncate ${value ? "text-ink" : "text-ink-faint/60"}`}>
-              {value || placeholder || "Pick a date"}
+            <span dir="auto" className={`truncate ${value ? "text-ink" : "text-ink-faint/60"}`}>
+              {value || placeholder || t.date.pick}
             </span>
           </button>
           {value && (
             <button
               type="button"
               onClick={() => editField(node.id, field, "")}
-              className="pressable mr-1.5 shrink-0 rounded-md p-1 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
-              aria-label="Clear date"
-              title="Clear date"
+              className="pressable me-1.5 shrink-0 rounded-md p-1 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
+              aria-label={t.date.clearDate}
+              title={t.date.clearDate}
             >
               <XIcon className="size-3.5" />
             </button>

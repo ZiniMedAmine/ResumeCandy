@@ -3,125 +3,59 @@ import type { NodeKind, SectionType } from "./resume/types";
 /**
  * The catalogue of section types a resume can hold.
  *
- * One list drives the Add-content picker, the default heading a new section
- * gets, the icon it shows in the editor and on the paper, and which kind of
- * node its "Add entry" button creates — so a new section type is one entry
- * here rather than four switch statements that can drift apart.
+ * One list drives the Add-content picker, the icon a section shows in the
+ * editor and on the paper, and which kind of node its "Add entry" button
+ * creates — so a new section type is one entry here rather than four switch
+ * statements that can drift apart.
+ *
+ * Two things deliberately live elsewhere. The default *heading* is in
+ * `locale.ts`: it is printed on the résumé, so it belongs to the CV's
+ * language. The picker blurb and the add-button wording are in the interface
+ * dictionary, keyed by `type` and `addKey`: they are this app talking, so they
+ * follow the app's language. Keeping the two apart is what lets an Arabic CV
+ * be edited in an English UI.
  *
  * Several types share a child kind on purpose: a course, an award and a
  * certificate are all "name, issuer, date", and giving them separate node
  * kinds would buy nothing but three more branches everywhere.
  */
+export type AddLabelKey =
+  | "entry"
+  | "skillGroup"
+  | "language"
+  | "certificate"
+  | "interestGroup"
+  | "project"
+  | "course"
+  | "award"
+  | "organisation"
+  | "publication"
+  | "reference"
+  | "paragraph";
+
 export interface SectionPreset {
   type: SectionType;
-  /** Default heading printed on the resume. */
-  title: string;
-  /** One-liner in the picker. */
-  description: string;
   /** Node kind created by this section's add button. */
   childKind: NodeKind;
-  addLabel: string;
+  /** Key into `t.sections.add` — what the add button says. */
+  addKey: AddLabelKey;
 }
 
 export const SECTION_PRESETS: SectionPreset[] = [
-  {
-    type: "education",
-    title: "Education",
-    description: "Your degrees and schools, with focus, honours or exchange terms.",
-    childKind: "education",
-    addLabel: "Add entry",
-  },
-  {
-    type: "experience",
-    title: "Professional Experience",
-    description: "Roles and employment history, including internships.",
-    childKind: "experience",
-    addLabel: "Add entry",
-  },
-  {
-    type: "skills",
-    title: "Technical Skills",
-    description: "The hard and soft skills that make you stand out.",
-    childKind: "skillGroup",
-    addLabel: "Add skill group",
-  },
-  {
-    type: "languages",
-    title: "Languages",
-    description: "Languages you speak and how fluent you are in each.",
-    childKind: "language",
-    addLabel: "Add language",
-  },
-  {
-    type: "certifications",
-    title: "Certificates",
-    description: "Industry certificates and licences, with issuer and date.",
-    childKind: "certification",
-    addLabel: "Add certificate",
-  },
-  {
-    type: "interests",
-    title: "Interests",
-    description: "Personal interests that support your story and cultural fit.",
-    childKind: "skillGroup",
-    addLabel: "Add interest group",
-  },
-  {
-    type: "projects",
-    title: "Projects",
-    description: "Key projects, with your role, the challenge and the impact.",
-    childKind: "project",
-    addLabel: "Add project",
-  },
-  {
-    type: "courses",
-    title: "Courses",
-    description: "Online or in-person courses and trainings you completed.",
-    childKind: "certification",
-    addLabel: "Add course",
-  },
-  {
-    type: "awards",
-    title: "Awards",
-    description: "Recognitions from industry, competitions or academia.",
-    childKind: "certification",
-    addLabel: "Add award",
-  },
-  {
-    type: "organisations",
-    title: "Organisations",
-    description: "Memberships and volunteering, including your role.",
-    childKind: "experience",
-    addLabel: "Add organisation",
-  },
-  {
-    type: "publications",
-    title: "Publications",
-    description: "Articles, papers or books you wrote or contributed to.",
-    childKind: "project",
-    addLabel: "Add publication",
-  },
-  {
-    type: "references",
-    title: "References",
-    description: "Referees from managers or coworkers, with contact details.",
-    childKind: "reference",
-    addLabel: "Add reference",
-  },
-  {
-    type: "declaration",
-    title: "Declaration",
-    description: "A closing statement, signed off in your own words.",
-    childKind: "text",
-    addLabel: "Add paragraph",
-  },
-  {
-    type: "custom",
-    title: "Custom Section",
-    description: "Anything else — free paragraphs under a heading you choose.",
-    childKind: "text",
-    addLabel: "Add paragraph",
-  },
+  { type: "education", childKind: "education", addKey: "entry" },
+  { type: "experience", childKind: "experience", addKey: "entry" },
+  { type: "skills", childKind: "skillGroup", addKey: "skillGroup" },
+  { type: "languages", childKind: "language", addKey: "language" },
+  { type: "certifications", childKind: "certification", addKey: "certificate" },
+  { type: "interests", childKind: "skillGroup", addKey: "interestGroup" },
+  { type: "projects", childKind: "project", addKey: "project" },
+  { type: "courses", childKind: "certification", addKey: "course" },
+  { type: "awards", childKind: "certification", addKey: "award" },
+  { type: "organisations", childKind: "experience", addKey: "organisation" },
+  { type: "publications", childKind: "project", addKey: "publication" },
+  { type: "references", childKind: "reference", addKey: "reference" },
+  { type: "declaration", childKind: "text", addKey: "paragraph" },
+  { type: "custom", childKind: "text", addKey: "paragraph" },
 ];
 
 const BY_TYPE = new Map(SECTION_PRESETS.map((p) => [p.type, p]));

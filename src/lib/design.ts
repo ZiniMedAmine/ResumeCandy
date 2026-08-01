@@ -9,6 +9,9 @@
  * it existed. Keys that changed shape are migrated explicitly in `resolveDesign`.
  */
 
+import { parseDateValue } from "./date-value";
+import { LOCALE_LIST, localeOf, toArabicIndic, type Direction, type LocaleId } from "./locale";
+
 export type TemplateId = "classic" | "modern";
 
 export type PageFormatId = "a4" | "letter" | "legal";
@@ -38,6 +41,14 @@ export interface DesignSettings {
   template: TemplateId;
   /** Physical page the resume is laid out on; drives where pages break. */
   pageFormat: PageFormatId;
+  /**
+   * The language the résumé itself is written in — nothing to do with the
+   * language of the app's interface. Drives text direction, date wording,
+   * default section headings and which fonts are offered.
+   */
+  language: LocaleId;
+  /** Arabic-Indic numerals (٢٠٢٢) instead of Western ones. Arabic only. */
+  arabicIndicDigits: boolean;
   /** How dates in entries are rendered. */
   dateFormat: DateFormatId;
 
@@ -107,6 +118,8 @@ export interface DesignSettings {
 export const DESIGN_DEFAULTS: DesignSettings = {
   template: "classic",
   pageFormat: "a4",
+  language: "en",
+  arabicIndicDigits: false,
   dateFormat: "monthYear",
 
   columns: "one",
@@ -183,10 +196,8 @@ export function pageFormatOf(design: DesignSettings): PageFormat {
   return PAGE_FORMATS[design.pageFormat] ?? PAGE_FORMATS.a4;
 }
 
-export const TEMPLATES: { id: TemplateId; name: string; description: string }[] = [
-  { id: "classic", name: "Classic", description: "Serif, centered header, ruled sections" },
-  { id: "modern", name: "Modern", description: "Sans-serif, accent header, sidebar column" },
-];
+/** Every template, in picker order. Names and blurbs come from the dictionary. */
+export const TEMPLATE_IDS: TemplateId[] = ["classic", "modern"];
 
 /* --------------------------------- fonts ---------------------------------- */
 
@@ -200,7 +211,9 @@ export type FontId =
   | "helvetica"
   | "verdana"
   | "tahoma"
-  | "trebuchet";
+  | "trebuchet"
+  | "naskh"
+  | "arabicSans";
 
 export interface FontOption {
   id: FontId;
@@ -208,132 +221,197 @@ export interface FontOption {
   /** Everything after the first family is a fallback, so nothing renders blank. */
   stack: string;
   kind: "serif" | "sans";
+  /** Which script this family actually has glyphs for. */
+  script: "latin" | "arabic";
 }
 
 /**
- * Two bundled families plus the fonts that ship with essentially every OS.
- * System fonts need no download and still embed correctly when the browser
+ * Two bundled Latin families plus the fonts that ship with essentially every
+ * OS. System fonts need no download and still embed correctly when the browser
  * prints, which keeps the PDF's text real text.
+ *
+ * The Arabic families are bundled rather than borrowed from the system: the
+ * PDF exporter has to embed the very same file it renders from, and what
+ * "Traditional Arabic" resolves to differs wildly between machines. Their
+ * stacks fall back to a Latin family so an Arabic CV's email addresses and
+ * URLs keep the body typeface instead of dropping to a browser default.
  */
 export const FONTS: FontOption[] = [
-  { id: "serif", name: "Source Serif", stack: "var(--font-resume-serif)", kind: "serif" },
-  { id: "sans", name: "Geist", stack: "var(--font-resume-sans)", kind: "sans" },
-  { id: "georgia", name: "Georgia", stack: "Georgia, 'Times New Roman', serif", kind: "serif" },
-  { id: "times", name: "Times New Roman", stack: "'Times New Roman', Times, serif", kind: "serif" },
-  { id: "garamond", name: "Garamond", stack: "Garamond, 'EB Garamond', Georgia, serif", kind: "serif" },
-  { id: "arial", name: "Arial", stack: "Arial, Helvetica, sans-serif", kind: "sans" },
-  { id: "helvetica", name: "Helvetica", stack: "Helvetica, Arial, sans-serif", kind: "sans" },
-  { id: "verdana", name: "Verdana", stack: "Verdana, Geneva, sans-serif", kind: "sans" },
-  { id: "tahoma", name: "Tahoma", stack: "Tahoma, Geneva, sans-serif", kind: "sans" },
-  { id: "trebuchet", name: "Trebuchet MS", stack: "'Trebuchet MS', Tahoma, sans-serif", kind: "sans" },
+  { id: "serif", name: "Source Serif", stack: "var(--font-resume-serif)", kind: "serif", script: "latin" },
+  { id: "sans", name: "Geist", stack: "var(--font-resume-sans)", kind: "sans", script: "latin" },
+  { id: "georgia", name: "Georgia", stack: "Georgia, 'Times New Roman', serif", kind: "serif", script: "latin" },
+  { id: "times", name: "Times New Roman", stack: "'Times New Roman', Times, serif", kind: "serif", script: "latin" },
+  { id: "garamond", name: "Garamond", stack: "Garamond, 'EB Garamond', Georgia, serif", kind: "serif", script: "latin" },
+  { id: "arial", name: "Arial", stack: "Arial, Helvetica, sans-serif", kind: "sans", script: "latin" },
+  { id: "helvetica", name: "Helvetica", stack: "Helvetica, Arial, sans-serif", kind: "sans", script: "latin" },
+  { id: "verdana", name: "Verdana", stack: "Verdana, Geneva, sans-serif", kind: "sans", script: "latin" },
+  { id: "tahoma", name: "Tahoma", stack: "Tahoma, Geneva, sans-serif", kind: "sans", script: "latin" },
+  { id: "trebuchet", name: "Trebuchet MS", stack: "'Trebuchet MS', Tahoma, sans-serif", kind: "sans", script: "latin" },
+  {
+    id: "naskh",
+    name: "Amiri",
+    stack: "var(--font-resume-naskh), var(--font-resume-serif), serif",
+    kind: "serif",
+    script: "arabic",
+  },
+  {
+    id: "arabicSans",
+    name: "IBM Plex Sans Arabic",
+    stack: "var(--font-resume-arabic-sans), var(--font-resume-sans), sans-serif",
+    kind: "sans",
+    script: "arabic",
+  },
 ];
 
 export function fontStack(id: FontId | null | undefined): string {
   return (FONTS.find((f) => f.id === id) ?? FONTS[0]).stack;
 }
 
+export function fontOption(id: FontId | null | undefined): FontOption | undefined {
+  return FONTS.find((f) => f.id === id);
+}
+
+/** The families offered for a CV in this language. */
+export function fontsFor(locale: LocaleId): FontOption[] {
+  const script = localeOf(locale).dir === "rtl" ? "arabic" : "latin";
+  return FONTS.filter((f) => f.script === script);
+}
+
+/**
+ * A font that can actually render this language, keeping the current choice
+ * when it already can.
+ *
+ * Switching a CV to Arabic while a Latin-only family is selected would render
+ * every heading as tofu, so the language control corrects the family along
+ * with the language — matching serif with serif so the change stays subtle.
+ */
+export function fontForLocale(current: FontId, locale: LocaleId): FontId {
+  const options = fontsFor(locale);
+  if (options.some((f) => f.id === current)) return current;
+  const kind = fontOption(current)?.kind ?? "serif";
+  return (options.find((f) => f.kind === kind) ?? options[0]).id;
+}
+
 /* -------------------------------- controls -------------------------------- */
 
+/**
+ * A control's choices are the ids below; what each one is *called* lives in
+ * the interface dictionary, keyed by the same id.
+ *
+ * That split is the point: this file stays a catalogue of what a setting can
+ * be, and stops being a copy deck that would need a second copy per language.
+ * `optionsFor` is what puts the two back together at the call site.
+ */
 export interface SegmentOption<T> {
   label: string;
   value: T;
 }
 
-export const PAGE_FORMAT_OPTIONS: SegmentOption<PageFormatId>[] = [
-  { label: "A4", value: "a4" },
-  { label: "Letter", value: "letter" },
-  { label: "Legal", value: "legal" },
+export function optionsFor<T extends string>(
+  ids: readonly T[],
+  labels: Record<T, string>,
+): SegmentOption<T>[] {
+  return ids.map((value) => ({ label: labels[value], value }));
+}
+
+/**
+ * The résumé's own language, named in that language — "Français", never
+ * "French". A language picker that translates its own options is a language
+ * picker you cannot use once you are lost in it.
+ */
+export const LOCALE_OPTIONS: SegmentOption<LocaleId>[] = LOCALE_LIST.map((l) => ({
+  label: l.name,
+  value: l.id,
+}));
+
+export const PAGE_FORMAT_IDS: PageFormatId[] = ["a4", "letter", "legal"];
+
+const DATE_FORMAT_IDS: DateFormatId[] = ["monthYear", "longMonth", "numeric", "numericUS", "yearOnly"];
+
+/**
+ * Each option labelled with what it actually produces for this CV — "mars
+ * 2022", "مارس 2022" — rather than a fixed English sample that would not match
+ * what the user is about to see on the paper.
+ */
+export function dateFormatOptions(style: Omit<DateStyle, "dateFormat">): SegmentOption<DateFormatId>[] {
+  return DATE_FORMAT_IDS.map((dateFormat) => ({
+    label: formatResumeDate("2022-03", { ...style, dateFormat }),
+    value: dateFormat,
+  }));
+}
+
+export const COLUMN_IDS: ColumnsId[] = ["one", "two", "mix"];
+
+export const ENTRY_STRUCTURE_IDS: EntryStructure[] = ["full", "columns"];
+
+export const DATE_POSITION_IDS: DatePosition[] = ["right", "left", "split"];
+
+export const SUBTITLE_IDS: SubtitlePlacement[] = ["sameLine", "below"];
+
+export const HEADING_STYLE_IDS: HeadingStyle[] = [
+  "underline",
+  "plain",
+  "box",
+  "bar",
+  "background",
+  "double",
 ];
 
-export const DATE_FORMAT_OPTIONS: SegmentOption<DateFormatId>[] = [
-  { label: "Mar 2022", value: "monthYear" },
-  { label: "March 2022", value: "longMonth" },
-  { label: "03/2022", value: "numeric" },
-  { label: "2022-03", value: "numericUS" },
-  { label: "2022", value: "yearOnly" },
+export const HEADING_CASE_IDS: HeadingCase[] = ["capitalize", "uppercase"];
+
+export const HEADING_ICON_IDS: HeadingIcons[] = ["none", "outline", "filled"];
+
+export const HEADER_ALIGN_IDS: HeaderAlign[] = ["left", "center"];
+
+export const HEADER_DETAILS_IDS: HeaderDetails[] = ["inline", "stacked"];
+
+export const HEADER_SEPARATOR_IDS: HeaderSeparator[] = ["icon", "bullet", "bar"];
+
+export type AccentPresetId =
+  | "maroon"
+  | "charcoal"
+  | "slate"
+  | "navy"
+  | "royal"
+  | "sky"
+  | "indigo"
+  | "violet"
+  | "teal"
+  | "emerald"
+  | "amber"
+  | "rose";
+
+export const ACCENT_PRESETS: { id: AccentPresetId; value: string }[] = [
+  { id: "maroon", value: "#9f1239" },
+  { id: "charcoal", value: "#27272a" },
+  { id: "slate", value: "#334155" },
+  { id: "navy", value: "#1e3a8a" },
+  { id: "royal", value: "#1d4ed8" },
+  { id: "sky", value: "#0284c7" },
+  { id: "indigo", value: "#4f46e5" },
+  { id: "violet", value: "#7c3aed" },
+  { id: "teal", value: "#0f766e" },
+  { id: "emerald", value: "#047857" },
+  { id: "amber", value: "#b45309" },
+  { id: "rose", value: "#e11d48" },
 ];
 
-export const COLUMN_OPTIONS: SegmentOption<ColumnsId>[] = [
-  { label: "One", value: "one" },
-  { label: "Two", value: "two" },
-  { label: "Mix", value: "mix" },
-];
-
-export const ENTRY_STRUCTURE_OPTIONS: SegmentOption<EntryStructure>[] = [
-  { label: "Full width", value: "full" },
-  { label: "Columns", value: "columns" },
-];
-
-export const DATE_POSITION_OPTIONS: SegmentOption<DatePosition>[] = [
-  { label: "Right", value: "right" },
-  { label: "Left", value: "left" },
-  { label: "Split", value: "split" },
-];
-
-export const SUBTITLE_OPTIONS: SegmentOption<SubtitlePlacement>[] = [
-  { label: "Same line", value: "sameLine" },
-  { label: "Below title", value: "below" },
-];
-
-export const HEADING_STYLE_OPTIONS: SegmentOption<HeadingStyle>[] = [
-  { label: "Underline", value: "underline" },
-  { label: "Plain", value: "plain" },
-  { label: "Box", value: "box" },
-  { label: "Left bar", value: "bar" },
-  { label: "Filled", value: "background" },
-  { label: "Double rule", value: "double" },
-];
-
-export const HEADING_CASE_OPTIONS: SegmentOption<HeadingCase>[] = [
-  { label: "Capitalize", value: "capitalize" },
-  { label: "UPPERCASE", value: "uppercase" },
-];
-
-export const HEADING_ICON_OPTIONS: SegmentOption<HeadingIcons>[] = [
-  { label: "None", value: "none" },
-  { label: "Outline", value: "outline" },
-  { label: "Filled", value: "filled" },
-];
-
-export const HEADER_ALIGN_OPTIONS: SegmentOption<HeaderAlign>[] = [
-  { label: "Left", value: "left" },
-  { label: "Center", value: "center" },
-];
-
-export const HEADER_DETAILS_OPTIONS: SegmentOption<HeaderDetails>[] = [
-  { label: "Inline", value: "inline" },
-  { label: "Stacked", value: "stacked" },
-];
-
-export const HEADER_SEPARATOR_OPTIONS: SegmentOption<HeaderSeparator>[] = [
-  { label: "Icon", value: "icon" },
-  { label: "Bullet", value: "bullet" },
-  { label: "Bar", value: "bar" },
-];
-
-export const ACCENT_PRESETS = [
-  { name: "Maroon", value: "#9f1239" },
-  { name: "Charcoal", value: "#27272a" },
-  { name: "Slate", value: "#334155" },
-  { name: "Navy", value: "#1e3a8a" },
-  { name: "Royal", value: "#1d4ed8" },
-  { name: "Sky", value: "#0284c7" },
-  { name: "Indigo", value: "#4f46e5" },
-  { name: "Violet", value: "#7c3aed" },
-  { name: "Teal", value: "#0f766e" },
-  { name: "Emerald", value: "#047857" },
-  { name: "Amber", value: "#b45309" },
-  { name: "Rose", value: "#e11d48" },
-];
+export type AccentTargetKey =
+  | "accentName"
+  | "accentSubtitle"
+  | "accentHeadings"
+  | "accentHeadingLine"
+  | "accentBullets"
+  | "accentDates";
 
 /** Every accent-target toggle, so the panel can render them from one list. */
-export const ACCENT_TARGETS: { key: keyof DesignSettings; label: string }[] = [
-  { key: "accentName", label: "Name" },
-  { key: "accentSubtitle", label: "Company / subtitle" },
-  { key: "accentHeadings", label: "Section headings" },
-  { key: "accentHeadingLine", label: "Heading rules" },
-  { key: "accentBullets", label: "Bullets & chips" },
-  { key: "accentDates", label: "Dates" },
+export const ACCENT_TARGET_KEYS: AccentTargetKey[] = [
+  "accentName",
+  "accentSubtitle",
+  "accentHeadings",
+  "accentHeadingLine",
+  "accentBullets",
+  "accentDates",
 ];
 
 /* ------------------------------ numeric ranges ----------------------------- */
@@ -398,7 +476,24 @@ export function resolveDesign(
   if (raw.fontFamily == null) {
     merged.fontFamily = merged.template === "modern" ? "sans" : "serif";
   }
+
+  // A Latin-only family cannot draw a single Arabic letter, so the pairing is
+  // corrected here rather than trusted: any route into these settings — an
+  // older resume, a copied version patch, a half-applied language change —
+  // would otherwise render the whole paper as tofu.
+  merged.fontFamily = fontForLocale(merged.fontFamily, merged.language);
+  if (merged.nameFont) merged.nameFont = fontForLocale(merged.nameFont, merged.language);
+
   return merged;
+}
+
+/** Which way this CV reads. */
+export function designDirection(design: DesignSettings): Direction {
+  return localeOf(design.language).dir;
+}
+
+export function isRtl(design: DesignSettings): boolean {
+  return designDirection(design) === "rtl";
 }
 
 export function isDesignKey(key: string): key is keyof DesignSettings {
@@ -407,51 +502,43 @@ export function isDesignKey(key: string): key is keyof DesignSettings {
 
 /* ----------------------------- date rendering ------------------------------ */
 
-const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const MONTHS_LONG = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+/** Everything that decides how a stored date reads on the paper. */
+export type DateStyle = Pick<DesignSettings, "dateFormat" | "language" | "arabicIndicDigits">;
 
 /**
  * Renders a stored date ("2022-03", "2014", "Present", or anything hand-typed)
- * in the chosen display format. Values that matched no known shape are passed
- * through verbatim — a format setting must never eat someone's text.
+ * in the chosen display format and the CV's language. Values that matched no
+ * known shape are passed through verbatim — a format setting must never eat
+ * someone's text.
+ *
+ * Parsing is delegated to `parseDateValue` so the picker, the trigger label
+ * and the paper all agree on what a stored string means; only the rendering
+ * differs here.
  */
-export function formatResumeDate(raw: string, format: DateFormatId): string {
+export function formatResumeDate(raw: string, style: DateStyle): string {
   const text = raw.trim();
   if (!text) return "";
 
-  const iso = /^(\d{4})[-/](\d{1,2})$/.exec(text);
-  const slashed = /^(\d{1,2})\/(\d{4})$/.exec(text);
-  const yearOnly = /^(\d{4})$/.exec(text);
+  const locale = localeOf(style.language);
+  const digits = (value: string) =>
+    style.arabicIndicDigits && locale.dir === "rtl" ? toArabicIndic(value) : value;
 
-  let year: number | null = null;
-  let month: number | null = null;
-  if (iso) {
-    year = Number(iso[1]);
-    month = Number(iso[2]);
-  } else if (slashed) {
-    month = Number(slashed[1]);
-    year = Number(slashed[2]);
-  } else if (yearOnly) {
-    year = Number(yearOnly[1]);
-  } else {
-    return text;
-  }
+  const value = parseDateValue(text);
+  // "Present" is stored as an English sentinel but is real content on the
+  // paper, so it is translated at render time rather than at rest.
+  if (value.present) return locale.present;
+  if (value.year == null) return text;
+  if (value.month == null || style.dateFormat === "yearOnly") return digits(String(value.year));
 
-  if (month != null && (month < 1 || month > 12)) return text;
-  if (year == null) return text;
-  if (month == null || format === "yearOnly") return String(year);
-
-  switch (format) {
+  const { year, month } = value;
+  switch (style.dateFormat) {
     case "numeric":
-      return `${String(month).padStart(2, "0")}/${year}`;
+      return digits(`${String(month).padStart(2, "0")}/${year}`);
     case "numericUS":
-      return `${year}-${String(month).padStart(2, "0")}`;
+      return digits(`${year}-${String(month).padStart(2, "0")}`);
     case "longMonth":
-      return `${MONTHS_LONG[month - 1]} ${year}`;
+      return `${locale.monthsLong[month - 1]} ${digits(String(year))}`;
     default:
-      return `${MONTHS_SHORT[month - 1]} ${year}`;
+      return `${locale.monthsShort[month - 1]} ${digits(String(year))}`;
   }
 }

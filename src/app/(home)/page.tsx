@@ -1,20 +1,19 @@
 import { NewResumeTile } from "@/components/dashboard/new-resume-tile";
 import { ResumeCard } from "@/components/dashboard/resume-card";
 import { listResumeCards } from "@/lib/data";
+import { getI18n } from "@/lib/i18n/server";
 import { enterDelay } from "@/lib/motion";
 
 export const dynamic = "force-dynamic";
 
 export default async function ResumesPage() {
-  const resumes = await listResumeCards();
+  const [resumes, { t }] = await Promise.all([listResumeCards(), getI18n()]);
 
   return (
     <div className="mx-auto max-w-7xl px-10 py-12">
       <header className="anim-rise mb-11">
-        <h1 className="text-[32px] font-bold tracking-tight text-ink">My resumes</h1>
-        <p className="mt-2 text-[17px] leading-relaxed text-ink-muted">
-          One resume per career, with unlimited tailored versions inside each.
-        </p>
+        <h1 className="text-[32px] font-bold tracking-tight text-ink">{t.dashboard.title}</h1>
+        <p className="mt-2 text-[17px] leading-relaxed text-ink-muted">{t.dashboard.subtitle}</p>
       </header>
 
       {/* The grid deals itself in, ~40ms apart, so the page lands instead of

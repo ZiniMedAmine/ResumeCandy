@@ -62,7 +62,7 @@ function Header({ node, markCustomized }: { node: ResolvedNode; markCustomized: 
       node={node}
       markCustomized={markCustomized}
       blockId={node.id}
-      className={`mb-[var(--sec-gap)] ${center ? "text-center" : "text-left"}`}
+      className={`mb-[var(--sec-gap)] ${center ? "text-center" : "text-start"}`}
     >
       <div className={`flex items-center gap-[1.2em] ${center ? "justify-center" : ""}`}>
         <HeaderPhoto data={d} />
@@ -92,7 +92,7 @@ function Header({ node, markCustomized }: { node: ResolvedNode; markCustomized: 
         </div>
       </div>
       {s(d.summary) && (
-        <p className="mt-[0.8em] text-left text-[0.95em] leading-[inherit] text-zinc-700">
+        <p dir="auto" className="mt-[0.8em] text-start text-[0.95em] leading-[inherit] text-zinc-700">
           {s(d.summary)}
         </p>
       )}
@@ -210,6 +210,7 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
           </p>
           {s(d.date) && (
             <p
+              dir="auto"
               className="shrink-0 text-[0.88em] tabular-nums"
               style={{ color: design.accentDates ? "var(--accent)" : "#52525b" }}
             >
@@ -259,6 +260,7 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
           node={node}
           markCustomized={markCustomized}
           blockId={node.id}
+          dir="auto"
           className="text-[0.95em] leading-[inherit] text-zinc-700"
         >
           {s(d.text)}

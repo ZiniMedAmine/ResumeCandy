@@ -53,7 +53,9 @@ export function Menu({
         <MenuContext.Provider value={{ close: () => setOpen(false) }}>
           <div
             className={`anim-pop absolute top-full z-40 mt-1.5 min-w-52 overflow-hidden rounded-xl border border-hairline bg-surface p-1.5 shadow-pop ${
-              align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left"
+              align === "end"
+                ? "end-0 origin-top-right rtl:origin-top-left"
+                : "start-0 origin-top-left rtl:origin-top-right"
             }`}
             role="menu"
           >
@@ -89,7 +91,7 @@ export function MenuItem({
         ctx?.close();
         onSelect();
       }}
-      className={`pressable flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-150 disabled:opacity-40 ${
+      className={`pressable flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-[13px] transition-colors duration-150 disabled:opacity-40 ${
         danger ? "text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" : "text-ink hover:bg-sunken"
       }`}
     >

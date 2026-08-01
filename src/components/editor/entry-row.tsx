@@ -1,6 +1,7 @@
 "use client";
 
 import { EyeIcon, EyeOffIcon, GripIcon } from "@/components/ui/icons";
+import { useI18n } from "@/lib/i18n/provider";
 import type { ResolvedNode } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { entrySummary } from "./entry-fields";
@@ -27,7 +28,9 @@ export function EntryRow({
   edge?: DropEdge;
 }) {
   const setHidden = useResumeStore((s) => s.setHidden);
-  const { title, subtitle } = entrySummary(node);
+  const i18n = useI18n();
+  const t = i18n.t;
+  const { title, subtitle } = entrySummary(node, i18n);
   const isLocal = node.status === "local";
   const hidden = node.hidden;
 
@@ -43,10 +46,14 @@ export function EntryRow({
       <button
         type="button"
         onClick={onEdit}
-        className="pressable flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left"
-        title="Edit entry"
+        className="pressable flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-start"
+        title={t.entry.edit}
       >
-        <span className={`min-w-0 truncate text-[13.5px] ${hidden ? "text-ink-faint" : "text-ink"}`}>
+        {/* Résumé content, so it reads in its own direction. */}
+        <span
+          dir="auto"
+          className={`min-w-0 truncate text-[13.5px] ${hidden ? "text-ink-faint" : "text-ink"}`}
+        >
           <span className="font-semibold">{title}</span>
           {subtitle && (
             <span className={hidden ? "" : "text-ink-muted"}>
@@ -58,7 +65,7 @@ export function EntryRow({
         {node.status === "customized" && (
           <span
             className="size-1.5 shrink-0 rounded-full bg-amber-400"
-            title="Customized in this version"
+            title={t.entry.customizedInThisVersion}
           />
         )}
         {isLocal && <LocalBadge />}
@@ -69,8 +76,8 @@ export function EntryRow({
           type="button"
           onClick={() => setHidden(node.id, !hidden)}
           className="pressable shrink-0 rounded-lg p-2 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
-          title={hidden ? "Show in this version" : "Hide in this version"}
-          aria-label={hidden ? "Show in this version" : "Hide in this version"}
+          title={hidden ? t.entry.showInVersion : t.entry.hideInVersion}
+          aria-label={hidden ? t.entry.showInVersion : t.entry.hideInVersion}
         >
           {hidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
         </button>

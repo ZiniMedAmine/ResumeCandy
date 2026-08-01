@@ -12,6 +12,8 @@ import {
   UploadIcon,
   XIcon,
 } from "@/components/ui/icons";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Dictionary } from "@/lib/i18n";
 import {
   fieldLabel,
   isHiddenFlag,
@@ -38,6 +40,7 @@ function buildRows(
   baseTree: ResolvedTree,
   overridesForVersion: Record<string, { patch: Record<string, unknown> | null; hidden: unknown; rank: string | null }>,
   localRoots: { id: string }[],
+  kinds: Dictionary["kind"],
 ): Row[] {
   const rows: Row[] = [];
 
@@ -57,7 +60,7 @@ function buildRows(
     if (fields.length === 0 && !hidden && !moved) continue;
     rows.push({
       nodeId,
-      label: nodeLabel(source.kind, source.data),
+      label: nodeLabel(source.kind, source.data, kinds),
       section: sectionTitleOf(active ? activeTree : baseTree, nodeId),
       kindIcon: fields.length > 0 ? "edit" : hidden ? "hidden" : "moved",
       fields,
@@ -72,7 +75,7 @@ function buildRows(
     if (!node) continue;
     rows.push({
       nodeId: id,
-      label: nodeLabel(node.kind, node.data),
+      label: nodeLabel(node.kind, node.data, kinds),
       section: sectionTitleOf(activeTree, id),
       kindIcon: "local",
       fields: [],
@@ -110,6 +113,7 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
   const deleteNodeHard = useResumeStore((s) => s.deleteNodeHard);
   const setHidden = useResumeStore((s) => s.setHidden);
   const ui = useEditorUI();
+  const { t, fmt } = useI18n();
 
   const activeVersion = versions.find((v) => v.id === activeVersionId);
   const onBase = activeVersion?.isBase === 1 || activeVersion?.isBase === true;
@@ -131,8 +135,8 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
   );
 
   const rows = useMemo(
-    () => buildRows(activeTree, baseTree, forVersion, localRoots),
-    [activeTree, baseTree, forVersion, localRoots],
+    () => buildRows(activeTree, baseTree, forVersion, localRoots, t.kind),
+    [activeTree, baseTree, forVersion, localRoots, t.kind],
   );
 
   if (!open) return null;
@@ -145,23 +149,23 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
   }
 
   return (
-    <aside className="flex w-[340px] shrink-0 flex-col border-l border-hairline bg-surface">
+    <aside className="flex w-[340px] shrink-0 flex-col border-s border-hairline bg-surface">
       <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
         <div>
           <h3 className="text-[13.5px] font-semibold text-ink">
-            {onBase ? "Hidden in Default" : "Customizations"}
+            {onBase ? t.customizations.hiddenInDefaultTitle : t.customizations.title}
           </h3>
           <p className="text-[11.5px] text-ink-faint">
             {onBase
-              ? "Items excluded from the Default only"
-              : `${rows.length} difference${rows.length === 1 ? "" : "s"} from the Default`}
+              ? t.customizations.excludedFromDefault
+              : fmt(t.customizations.differenceCount, { n: rows.length })}
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
           className="pressable rounded-lg p-1.5 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
-          aria-label="Close panel"
+          aria-label={t.customizations.closePanel}
         >
           <XIcon className="size-4" />
         </button>
@@ -171,12 +175,11 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
         {rows.length === 0 && (
           <div className="mt-10 px-4 text-center">
             <p className="text-[13px] font-medium text-ink-muted">
-              {onBase ? "Nothing hidden in the Default." : "Identical to the Default."}
+              {onBase ? t.customizations.nothingHidden : t.customizations.identical}
             </p>
             {!onBase && (
               <p className="mt-1 text-[12px] leading-relaxed text-ink-faint">
-                Edit any field while viewing this version and it becomes a customization —
-                everything else keeps following the Default.
+                {t.customizations.identicalHint}
               </p>
             )}
           </div>
@@ -184,8 +187,11 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
 
         {[...grouped.entries()].map(([section, sectionRows]) => (
           <div key={section} className="mb-3">
-            <p className="mb-1 px-1 text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">
-              {section || "Resume"}
+            <p
+              dir="auto"
+              className="mb-1 px-1 text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint"
+            >
+              {section || t.customizations.resumeGroup}
             </p>
             <div className="space-y-1">
               {sectionRows.map((row) => (
@@ -198,14 +204,14 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
                     <button
                       type="button"
                       onClick={() => setExpanded(expanded === row.nodeId ? null : row.nodeId)}
-                      className="pressable flex min-w-0 flex-1 items-center gap-1 text-left"
+                      className="pressable flex min-w-0 flex-1 items-center gap-1 text-start"
                     >
-                      <span className="min-w-0 truncate text-[12.5px] font-medium text-ink">
+                      <span dir="auto" className="min-w-0 truncate text-[12.5px] font-medium text-ink">
                         {row.label}
                       </span>
                       {row.fields.length > 0 && (
                         <ChevronRightIcon
-                          className={`size-3 shrink-0 text-ink-faint transition-transform ${expanded === row.nodeId ? "rotate-90" : ""}`}
+                          className={`size-3 shrink-0 text-ink-faint transition-transform rtl:-scale-x-100 ${expanded === row.nodeId ? "rotate-90" : ""}`}
                         />
                       )}
                     </button>
@@ -214,7 +220,7 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
                         <>
                           <button
                             type="button"
-                            title="Add to Default (all versions)"
+                            title={t.customizations.addToDefault}
                             onClick={() => promoteLocalNode(row.nodeId)}
                             className="pressable rounded-md p-1 text-ink-faint transition-colors duration-150 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950"
                           >
@@ -222,7 +228,7 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
                           </button>
                           <button
                             type="button"
-                            title="Remove from this version"
+                            title={t.customizations.removeFromVersion}
                             onClick={() => deleteNodeHard(row.nodeId)}
                             className="pressable rounded-md p-1 text-ink-faint transition-colors duration-150 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
                           >
@@ -232,16 +238,16 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
                       ) : row.kindIcon === "hidden" && onBase ? (
                         <button
                           type="button"
-                          title="Show in Default"
+                          title={t.customizations.showInDefault}
                           onClick={() => setHidden(row.nodeId, false)}
                           className="pressable rounded-md px-1.5 py-0.5 text-[11px] font-medium text-rose-600 transition-colors duration-150 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950"
                         >
-                          Show
+                          {t.common.show}
                         </button>
                       ) : (
                         <button
                           type="button"
-                          title="Reset this item to the Default"
+                          title={t.customizations.resetItem}
                           onClick={() => resetNode(row.nodeId)}
                           className="pressable rounded-lg p-1.5 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
                         >
@@ -254,17 +260,17 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
                   <div className="flex flex-wrap gap-1 px-2.5 pb-2">
                     {row.hidden && !onBase && (
                       <span className="rounded-full bg-sunken px-2 py-0.5 text-[10px] font-medium text-ink-muted">
-                        hidden here
+                        {t.customizations.hiddenHere}
                       </span>
                     )}
                     {row.moved && (
                       <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-950 dark:text-sky-300">
-                        reordered
+                        {t.customizations.reordered}
                       </span>
                     )}
                     {row.local && (
                       <span className="rounded-full bg-violet-100/80 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
-                        only in this version
+                        {t.customizations.onlyInThisVersion}
                       </span>
                     )}
                     {row.fields.map((f) => (
@@ -272,7 +278,7 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
                         key={f.field}
                         className="rounded-full bg-amber-100/80 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
                       >
-                        {fieldLabel(f.field)}
+                        {fieldLabel(f.field, t.field)}
                       </span>
                     ))}
                   </div>
@@ -282,29 +288,37 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
                       {row.fields.map((f) => (
                         <div key={f.field} className="text-[11.5px]">
                           <div className="mb-0.5 flex items-center justify-between">
-                            <span className="font-medium text-ink-muted">{fieldLabel(f.field)}</span>
+                            <span className="font-medium text-ink-muted">
+                              {fieldLabel(f.field, t.field)}
+                            </span>
                             <span className="flex gap-1">
                               <button
                                 type="button"
                                 onClick={() => resetField(row.nodeId, f.field)}
                                 className="pressable rounded-md px-1.5 py-0.5 text-[10.5px] font-medium text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink"
                               >
-                                Reset
+                                {t.common.reset}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => pushFieldToBase(row.nodeId, f.field)}
                                 className="pressable rounded px-1 py-0.5 text-[10.5px] font-medium text-rose-500 transition-colors duration-150 hover:bg-rose-50 dark:hover:bg-rose-950"
                               >
-                                Push to Default
+                                {t.provenance.pushToDefault}
                               </button>
                             </span>
                           </div>
-                          <p className="rounded bg-red-50 px-1.5 py-1 text-red-700/80 line-through decoration-red-300 dark:bg-red-950/30 dark:text-red-300/70">
-                            {f.before || <em className="opacity-60">empty</em>}
+                          <p
+                            dir="auto"
+                            className="rounded bg-red-50 px-1.5 py-1 text-red-700/80 line-through decoration-red-300 dark:bg-red-950/30 dark:text-red-300/70"
+                          >
+                            {f.before || <em className="opacity-60">{t.common.empty}</em>}
                           </p>
-                          <p className="mt-0.5 rounded bg-emerald-50 px-1.5 py-1 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-                            {f.after || <em className="opacity-60">empty</em>}
+                          <p
+                            dir="auto"
+                            className="mt-0.5 rounded bg-emerald-50 px-1.5 py-1 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+                          >
+                            {f.after || <em className="opacity-60">{t.common.empty}</em>}
                           </p>
                         </div>
                       ))}
@@ -325,22 +339,22 @@ export function CustomizationsPanel({ open, onClose }: { open: boolean; onClose:
             className="pressable flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-hairline py-1.5 text-[12.5px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken "
           >
             <CopyIcon className="size-3.5" />
-            Copy to versions…
+            {t.customizations.copyToVersions}
           </button>
           <button
             type="button"
             onClick={() =>
               ui.confirm({
-                title: `Reset “${activeVersion?.name}”?`,
-                body: "All customizations will be removed and this version will match the Default exactly. You can undo right after.",
-                confirmLabel: "Reset version",
+                title: fmt(t.customizations.resetVersionTitle, { name: activeVersion?.name ?? "" }),
+                body: t.customizations.resetVersionBody,
+                confirmLabel: t.customizations.resetVersionConfirm,
                 onConfirm: () => resetScope(null),
               })
             }
             className="pressable flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 py-1.5 text-[12.5px] font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
           >
             <UndoIcon className="size-3.5" />
-            Reset all
+            {t.customizations.resetAll}
           </button>
         </div>
       )}

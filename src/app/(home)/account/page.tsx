@@ -1,7 +1,9 @@
 import { signOut } from "@/app/actions/auth";
+import { LanguagePicker } from "@/components/account/language-picker";
 import { FileIcon, LayersIcon, UserIcon } from "@/components/ui/icons";
 import { accountSummary } from "@/lib/data";
-import { relativeTime } from "@/lib/relative-time";
+import { getI18n } from "@/lib/i18n/server";
+import { RelativeTime } from "@/components/ui/relative-time";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,7 @@ function Stat({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl bg-surface p-6 shadow-card">
@@ -33,15 +35,13 @@ function initials(name: string): string {
 }
 
 export default async function AccountPage() {
-  const account = await accountSummary();
+  const [account, { t, fmt }] = await Promise.all([accountSummary(), getI18n()]);
 
   return (
     <div className="mx-auto max-w-7xl px-10 py-12">
       <header className="anim-rise mb-11">
-        <h1 className="text-[32px] font-bold tracking-tight text-ink">My account</h1>
-        <p className="mt-2 text-[17px] leading-relaxed text-ink-muted">
-          Who you’re signed in as and what this collection holds.
-        </p>
+        <h1 className="text-[32px] font-bold tracking-tight text-ink">{t.account.title}</h1>
+        <p className="mt-2 text-[17px] leading-relaxed text-ink-muted">{t.account.subtitle}</p>
       </header>
 
       <section className="mb-7 rounded-2xl bg-surface p-7 shadow-card">
@@ -51,9 +51,12 @@ export default async function AccountPage() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[19px] font-semibold text-ink">{account.name}</p>
-            <p className="truncate text-[15px] text-ink-muted">{account.email}</p>
+            {/* An address is Latin whatever the interface language is. */}
+            <p dir="ltr" className="truncate text-start text-[15px] text-ink-muted">
+              {account.email}
+            </p>
             <p className="mt-0.5 text-[13.5px] text-ink-faint">
-              Member since {relativeTime(account.memberSince)}
+              {t.account.memberSince} <RelativeTime ms={account.memberSince} />
             </p>
           </div>
           <form action={signOut}>
@@ -61,23 +64,31 @@ export default async function AccountPage() {
               type="submit"
               className="pressable shrink-0 rounded-xl border border-hairline px-4 py-2.5 text-[15px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink"
             >
-              Sign out
+              {t.sidebar.signOut}
             </button>
           </form>
         </div>
       </section>
 
+      <section className="mb-7 max-w-md rounded-2xl bg-surface p-7 shadow-card">
+        <LanguagePicker />
+      </section>
+
       <div className="grid grid-cols-2 gap-7 sm:grid-cols-3">
-        <Stat icon={<FileIcon />} label="Resumes" value={String(account.resumeCount)} />
+        <Stat
+          icon={<FileIcon />}
+          label={t.account.resumes}
+          value={fmt("{n}", { n: account.resumeCount })}
+        />
         <Stat
           icon={<LayersIcon />}
-          label="Versions across all resumes"
-          value={String(account.versionCount)}
+          label={t.account.versionsAcross}
+          value={fmt("{n}", { n: account.versionCount })}
         />
         <Stat
           icon={<UserIcon />}
-          label="Collection age"
-          value={relativeTime(account.collectionCreatedAt).replace(" ago", "")}
+          label={t.account.collectionAge}
+          value={<RelativeTime ms={account.collectionCreatedAt} elapsed />}
         />
       </div>
     </div>

@@ -54,6 +54,45 @@
 }
 
 /**
+ * Arabic. These are the same files the PDF exporter embeds, so the preview and
+ * the download cannot disagree about metrics. Both carry Latin as well as
+ * Arabic, which is why they were chosen: the exporter cannot fall back per
+ * glyph the way this stylesheet can, so an Arabic-only face would drop every
+ * email address and URL from the downloaded PDF.
+ *
+ * No italic face is declared: Arabic has no italic tradition, and letting the
+ * browser synthesise an oblique Naskh looks wrong — upright is correct.
+ */
+@font-face {
+  font-family: "ResumeCandy Amiri";
+  src: url("/pdf-fonts/Amiri-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy Amiri";
+  src: url("/pdf-fonts/Amiri-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy IBM Plex Sans Arabic";
+  src: url("/pdf-fonts/IBMPlexSansArabic-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResumeCandy IBM Plex Sans Arabic";
+  src: url("/pdf-fonts/IBMPlexSansArabic-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+
+/**
  * One small palette drives the whole app chrome. Components reference these
  * semantic tokens (bg-surface, text-ink-muted, border-hairline) instead of
  * hand-rolling zinc shades with a dark: twin for each — which keeps the UI
@@ -65,6 +104,18 @@
 :root {
   --font-resume-sans: "ResumeCandy Geist", ui-sans-serif, system-ui, sans-serif;
   --font-resume-serif: "ResumeCandy Source Serif", ui-serif, Georgia, serif;
+  --font-resume-naskh: "ResumeCandy Amiri";
+  --font-resume-arabic-sans: "ResumeCandy IBM Plex Sans Arabic";
+  /*
+   * The app chrome, which is not the paper.
+   *
+   * Geist carries no Arabic at all, so an Arabic interface would render every
+   * button as tofu. IBM Plex Sans Arabic sits behind it — a proper UI sans that
+   * is already bundled for the PDF exporter — and the browser falls back to it
+   * per glyph, which is why Latin text keeps Geist even in an Arabic UI.
+   */
+  --font-ui: "ResumeCandy Geist", "ResumeCandy IBM Plex Sans Arabic", ui-sans-serif,
+    system-ui, sans-serif;
   --canvas: #f5f5f7;
   --surface: #ffffff;
   --sunken: #f2f2f5;
@@ -112,7 +163,7 @@
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
 
-  --font-sans: var(--font-resume-sans);
+  --font-sans: var(--font-ui);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Soft, low-contrast elevation — depth without visual noise. */
@@ -125,7 +176,7 @@
 body {
   background: var(--canvas);
   color: var(--ink);
-  font-family: var(--font-resume-sans);
+  font-family: var(--font-ui);
   /* Slightly open tracking at small sizes reads calmer over long sessions. */
   letter-spacing: -0.006em;
 }

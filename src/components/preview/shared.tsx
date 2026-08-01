@@ -7,6 +7,7 @@ import {
   type DesignSettings,
   type SectionColumn,
 } from "@/lib/design";
+import { localeOf } from "@/lib/locale";
 import type { ResolvedNode, ResolvedTree, SectionType } from "@/lib/resume/types";
 import { GlobeIcon, LinkIcon, MailIcon, PhoneIcon, PinIcon } from "@/components/ui/icons";
 import { sectionIcon } from "@/components/ui/section-icons";
@@ -78,6 +79,7 @@ export function Marked({
   children,
   className = "",
   style,
+  dir,
 }: {
   node: ResolvedNode;
   markCustomized: boolean;
@@ -87,6 +89,8 @@ export function Marked({
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  /** "auto" lets this node's own text decide which way it reads. */
+  dir?: "auto";
 }) {
   const margins = useBlockMargins();
   const customized = markCustomized && (node.status === "customized" || node.status === "local");
@@ -96,13 +100,14 @@ export function Marked({
   return (
     <div
       data-node-id={node.id}
+      dir={dir}
       className={`relative ${className}`}
       {...pagingAttrs}
       style={style || pagingStyle ? { ...style, ...pagingStyle } : undefined}
     >
       {customized && (
         <span
-          className="absolute -left-[0.9em] top-[0.45em] size-[0.42em] rounded-full bg-amber-400"
+          className="absolute -start-[0.9em] top-[0.45em] size-[0.42em] rounded-full bg-amber-400"
           title={node.status === "local" ? "Only in this version" : "Customized in this version"}
         />
       )}
@@ -111,21 +116,29 @@ export function Marked({
   );
 }
 
-/** Contact entries with their icons, in display order. */
+/**
+ * Contact entries with their icons, in display order.
+ *
+ * Each carries the direction it must be read in. An address, a phone number
+ * and a URL are Latin/numeric whatever language the CV is in, and a phone
+ * number in particular has no strong character at all — dropped into an RTL
+ * paragraph it would come out as "212+" — so those are pinned LTR. Only the
+ * location can genuinely be Arabic, and it follows its own content.
+ */
 export function contactEntries(data: Record<string, unknown>) {
   return [
-    { key: "email", icon: MailIcon, value: s(data.email), link: false },
-    { key: "phone", icon: PhoneIcon, value: s(data.phone), link: false },
-    { key: "location", icon: PinIcon, value: s(data.location), link: false },
-    { key: "website", icon: GlobeIcon, value: s(data.website), link: true },
+    { key: "email", icon: MailIcon, value: s(data.email), link: false, dir: "ltr" as const },
+    { key: "phone", icon: PhoneIcon, value: s(data.phone), link: false, dir: "ltr" as const },
+    { key: "location", icon: PinIcon, value: s(data.location), link: false, dir: "auto" as const },
+    { key: "website", icon: GlobeIcon, value: s(data.website), link: true, dir: "ltr" as const },
   ].filter((e) => e.value);
 }
 
-/** Date range "Mar 2022 – Jun 2024", in the version's chosen date format. */
+/** Date range "Mar 2022 – Jun 2024", in the version's date format and language. */
 export function dateRange(data: Record<string, unknown>, design: DesignSettings): string {
-  const start = formatResumeDate(s(data.startDate), design.dateFormat);
-  const end = formatResumeDate(s(data.endDate), design.dateFormat);
-  if (start && end) return `${start} – ${end}`;
+  const start = formatResumeDate(s(data.startDate), design);
+  const end = formatResumeDate(s(data.endDate), design);
+  if (start && end) return `${start} ${localeOf(design.language).rangeSeparator} ${end}`;
   return start || end;
 }
 
@@ -192,8 +205,10 @@ export function SectionHeading({ node, blockId }: { node: ResolvedNode; blockId:
       style.padding = "0.15em 0.5em";
       break;
     case "bar":
-      style.borderLeft = `3px solid ${ruleColor}`;
-      style.paddingLeft = "0.5em";
+      // Inline-start, not left: the bar has to sit on the reading edge, which
+      // is the right-hand one in Arabic.
+      style.borderInlineStart = `3px solid ${ruleColor}`;
+      style.paddingInlineStart = "0.5em";
       break;
     case "background":
       style.background = design.accentHeadingLine ? accent : "#f4f4f5";
@@ -212,6 +227,7 @@ export function SectionHeading({ node, blockId }: { node: ResolvedNode; blockId:
 
   return (
     <h2
+      dir="auto"
       className="mb-[0.5em] flex items-center gap-[0.45em] font-bold"
       {...paging}
       style={{ ...style, ...pagingStyle }}
@@ -266,22 +282,33 @@ export function EntryHead({
   const metaColor = design.accentDates ? "var(--accent)" : "#52525b";
   const subtitleColor = design.accentSubtitle ? "var(--accent)" : "#3f3f46";
 
+  // Each run follows its own text, not the paper's language. Translating a CV
+  // happens field by field, so a half-translated version is the normal state
+  // rather than an edge case: an English role title still has to read left to
+  // right while it sits on an Arabic page waiting to be rewritten.
   const titleEl = (
-    <span className="font-bold text-zinc-900" style={titleStyle}>
+    <span dir="auto" className="font-bold text-zinc-900" style={titleStyle}>
       {title}
     </span>
   );
   const subtitleEl = subtitle ? (
-    <span className="text-[0.95em] italic" style={{ color: subtitleColor }}>
+    <span dir="auto" className="text-[0.95em] italic" style={{ color: subtitleColor }}>
       {subtitle}
     </span>
   ) : null;
+  // `auto` per element: a range of Arabic month names should read right to
+  // left, but "03/2022 – 01/2024" has no strong character and must not be
+  // flipped into "01/2024 – 03/2022" by the surrounding paragraph.
   const dateEl = date ? (
-    <span className="tabular-nums" style={{ color: metaColor }}>
+    <span dir="auto" className="tabular-nums" style={{ color: metaColor }}>
       {date}
     </span>
   ) : null;
-  const locationEl = location ? <span style={{ color: metaColor }}>{location}</span> : null;
+  const locationEl = location ? (
+    <span dir="auto" style={{ color: metaColor }}>
+      {location}
+    </span>
+  ) : null;
 
   // Full width: everything runs down the left edge, meta on its own line.
   if (entryStructure === "full") {
@@ -302,7 +329,7 @@ export function EntryHead({
 
   const meta = (
     <div
-      className={`shrink-0 text-[0.88em] leading-snug ${datePosition === "left" ? "text-left" : "text-right"}`}
+      className={`shrink-0 text-[0.88em] leading-snug ${datePosition === "left" ? "text-start" : "text-end"}`}
     >
       {dateEl && <p>{dateEl}</p>}
       {locationEl && <p>{locationEl}</p>}
@@ -387,7 +414,12 @@ export function BulletList({
             className="mt-[0.62em] size-[0.24em] shrink-0 rounded-full"
             style={{ background: design.accentBullets ? "var(--accent)" : "#3f3f46" }}
           />
-          <Marked node={b} markCustomized={markCustomized} className="flex-1 text-[0.95em] text-zinc-700">
+          <Marked
+            node={b}
+            markCustomized={markCustomized}
+            dir="auto"
+            className="flex-1 text-[0.95em] text-zinc-700"
+          >
             {s(b.data.text)}
           </Marked>
         </li>
@@ -396,12 +428,13 @@ export function BulletList({
   );
 }
 
-/** A URL rendered per the Link Styling settings. */
+/** A URL rendered per the Link Styling settings. Always LTR — URLs are. */
 export function ResumeLink({ href, className = "" }: { href: string; className?: string }) {
   const design = useDesignSettings();
   if (!href) return null;
   return (
     <span
+      dir="ltr"
       className={`inline-flex items-baseline gap-[0.25em] ${className}`}
       style={{
         color: design.linkAccent ? "var(--accent)" : undefined,
@@ -439,13 +472,13 @@ export function ContactLine({ data }: { data: Record<string, unknown> }) {
             }`
       }`}
     >
-      {contacts.map(({ key, icon: Icon, value, link }, i) => (
+      {contacts.map(({ key, icon: Icon, value, link, dir }, i) => (
         <span key={key} className="inline-flex items-center gap-[0.35em]">
           {!stacked && i > 0 && sep !== "icon" && (
             <span className="text-zinc-400">{sep === "bullet" ? "·" : "|"}</span>
           )}
           {sep === "icon" && <Icon className="size-[1em] text-zinc-500" />}
-          {link ? <ResumeLink href={value} /> : value}
+          {link ? <ResumeLink href={value} /> : <span dir={dir}>{value}</span>}
         </span>
       ))}
     </p>
@@ -499,7 +532,7 @@ export function SectionColumns({
         style={{ gridTemplateColumns: `${1 - sideFr}fr ${sideFr}fr` }}
       >
         <div data-flow="main">{main.map((n) => renderSection(n, { sidebar: false }))}</div>
-        <div data-flow="side" className="border-l border-zinc-200 pl-[1.6em]">
+        <div data-flow="side" className="border-s border-zinc-200 ps-[1.6em]">
           {side.map((n) => renderSection(n, { sidebar: true }))}
         </div>
       </div>

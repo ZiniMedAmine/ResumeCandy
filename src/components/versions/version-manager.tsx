@@ -15,7 +15,8 @@ import {
   WarningIcon,
 } from "@/components/ui/icons";
 import { fuzzyScore } from "@/lib/fuzzy";
-import { relativeTime } from "@/lib/relative-time";
+import { useI18n } from "@/lib/i18n/provider";
+import { RelativeTime } from "@/components/ui/relative-time";
 import { isHiddenFlag, type Version } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { useEditorUI } from "@/components/editor/editor-ui-context";
@@ -47,6 +48,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
   const bulkVersions = useResumeStore((s) => s.bulkVersions);
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
   const ui = useEditorUI();
+  const { t, fmt } = useI18n();
 
   const [tab, setTab] = useState<Tab>("active");
   const [query, setQuery] = useState("");
@@ -95,13 +97,13 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
   const allSelected = selectable.length > 0 && selectable.every((v) => selected.has(v.id));
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "active", label: "Active", count: versions.filter((v) => !v.deletedAt && !v.archivedAt).length },
-    { key: "archived", label: "Archived", count: versions.filter((v) => !v.deletedAt && v.archivedAt).length },
-    { key: "trash", label: "Trash", count: versions.filter((v) => v.deletedAt).length },
+    { key: "active", label: t.versions.tabActive, count: versions.filter((v) => !v.deletedAt && !v.archivedAt).length },
+    { key: "archived", label: t.versions.tabArchived, count: versions.filter((v) => !v.deletedAt && v.archivedAt).length },
+    { key: "trash", label: t.versions.tabTrash, count: versions.filter((v) => v.deletedAt).length },
   ];
 
   return (
-    <Dialog open onClose={onClose} title="Manage versions" width="max-w-3xl">
+    <Dialog open onClose={onClose} title={t.versions.managerTitle} width="max-w-3xl">
       <div className="px-5 pb-5 pt-3">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex gap-1 rounded-xl bg-sunken p-1">
@@ -124,12 +126,12 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
             ))}
           </div>
           <div className="relative w-56">
-            <SearchIcon className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-faint" />
+            <SearchIcon className="absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-faint" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name or tag…"
-              className="w-full rounded-lg border border-hairline py-1.5 pl-8 pr-2 text-[12.5px] outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10"
+              placeholder={t.versions.managerSearch}
+              className="w-full rounded-lg border border-hairline py-1.5 ps-8 pe-2 text-[12.5px] outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10"
             />
           </div>
         </div>
@@ -137,12 +139,12 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
         {tab === "trash" && rows.length > 0 && (
           <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-[12px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
             <WarningIcon className="size-3.5 shrink-0" />
-            Trashed versions are permanently deleted after 30 days.
+            {t.versions.trashNotice}
           </p>
         )}
 
         <div className="overflow-hidden rounded-xl border border-hairline">
-          <table className="w-full text-left text-[13px]">
+          <table className="w-full text-start text-[13px]">
             <thead className="border-b border-hairline bg-sunken text-[10.5px] font-semibold uppercase tracking-[0.07em] text-ink-faint">
               <tr>
                 <th className="w-9 px-3 py-2">
@@ -155,18 +157,22 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                     className="size-3.5 accent-rose-600"
                   />
                 </th>
-                <th className="py-2 pr-3 font-medium">Version</th>
-                <th className="py-2 pr-3 font-medium">Tags</th>
-                <th className="py-2 pr-3 text-right font-medium">Customized</th>
-                <th className="py-2 pr-3 font-medium">Opened</th>
-                <th className="w-10 py-2 pr-2" />
+                <th className="py-2 pe-3 font-medium">{t.versions.colVersion}</th>
+                <th className="py-2 pe-3 font-medium">{t.versions.colTags}</th>
+                <th className="py-2 pe-3 text-end font-medium">{t.versions.colCustomized}</th>
+                <th className="py-2 pe-3 font-medium">{t.versions.colOpened}</th>
+                <th className="w-10 py-2 pe-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline">
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-ink-faint">
-                    {tab === "trash" ? "Trash is empty." : tab === "archived" ? "Nothing archived." : "No versions match."}
+                    {tab === "trash"
+                      ? t.versions.emptyTrash
+                      : tab === "archived"
+                        ? t.versions.emptyArchived
+                        : t.versions.emptyActive}
                   </td>
                 </tr>
               )}
@@ -192,7 +198,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                         />
                       )}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="py-2 pe-3">
                       {editing?.id === v.id && editing.field === "name" ? (
                         <form
                           onSubmit={(e) => {
@@ -203,6 +209,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                         >
                           <input
                             autoFocus
+                            dir="auto"
                             value={editing.value}
                             onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                             onBlur={() => {
@@ -222,24 +229,30 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                               onClose();
                             }
                           }}
-                          className="pressable text-left font-medium text-ink transition-colors duration-150 hover:text-rose-600 dark:hover:text-rose-400"
-                          title={tab === "active" ? "Open this version" : undefined}
+                          className="pressable text-start font-medium text-ink transition-colors duration-150 hover:text-rose-600 dark:hover:text-rose-400"
+                          title={tab === "active" ? t.versions.openVersion : undefined}
                         >
-                          {v.name}
-                          {base && <span className="ml-1.5 text-[10px] font-semibold uppercase text-ink-faint">default</span>}
+                          <span dir="auto">{v.name}</span>
+                          {base && (
+                            <span className="ms-1.5 text-[10px] font-semibold uppercase text-ink-faint">
+                              {t.versions.defaultBadge}
+                            </span>
+                          )}
                           {v.id === activeVersionId && (
-                            <span className="ml-1.5 text-[10px] font-semibold uppercase text-emerald-500">current</span>
+                            <span className="ms-1.5 text-[10px] font-semibold uppercase text-emerald-500">
+                              {t.versions.currentBadge}
+                            </span>
                           )}
                         </button>
                       )}
                       {fromName && !base && (
                         <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-faint">
                           <GitBranchIcon className="size-3" />
-                          from {fromName}
+                          {fmt(t.versions.fromVersion, { name: fromName })}
                         </p>
                       )}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="py-2 pe-3">
                       {editing?.id === v.id && editing.field === "tags" ? (
                         <form
                           onSubmit={(e) => {
@@ -254,7 +267,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                           <input
                             autoFocus
                             value={editing.value}
-                            placeholder="comma, separated"
+                            placeholder={t.versions.tagsPlaceholder}
                             onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                             onBlur={() => {
                               setVersionTags(
@@ -272,11 +285,11 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                           type="button"
                           onClick={() => setEditing({ id: v.id, field: "tags", value: v.tags.join(", ") })}
                           className="pressable flex flex-wrap gap-1"
-                          title="Edit tags"
+                          title={t.versions.editTags}
                         >
                           {v.tags.length === 0 && (
                             <span className="text-[11px] text-ink-faint opacity-0 group-hover/row:opacity-100 dark:text-ink-muted">
-                              + tag
+                              {t.versions.addTag}
                             </span>
                           )}
                           {v.tags.map((t) => (
@@ -290,7 +303,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                         </button>
                       )}
                     </td>
-                    <td className="py-2 pr-3 text-right">
+                    <td className="py-2 pe-3 text-end">
                       {base ? (
                         <span className="text-[11px] text-ink-faint dark:text-ink-muted">—</span>
                       ) : (
@@ -301,17 +314,17 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                         </span>
                       )}
                     </td>
-                    <td className="py-2 pr-3 text-[12px] tabular-nums text-ink-faint">
-                      {relativeTime(v.lastOpenedAt)}
+                    <td className="py-2 pe-3 text-[12px] tabular-nums text-ink-faint">
+                      {v.lastOpenedAt ? <RelativeTime ms={v.lastOpenedAt} /> : "—"}
                     </td>
-                    <td className="py-2 pr-2">
+                    <td className="py-2 pe-2">
                       <Menu
                         align="end"
                         trigger={
                           <button
                             type="button"
                             className="pressable rounded-lg p-1.5 text-ink-faint opacity-0 transition-all duration-150 hover:bg-sunken hover:text-ink group-hover/row:opacity-100"
-                            aria-label={`Options for ${v.name}`}
+                            aria-label={fmt(t.versions.optionsFor, { name: v.name })}
                           >
                             <DotsIcon className="size-4" />
                           </button>
@@ -320,22 +333,22 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                         {tab === "trash" ? (
                           <>
                             <MenuItem icon={<ArchiveIcon />} onSelect={() => restoreTrashed(v.id)}>
-                              Restore
+                              {t.common.restore}
                             </MenuItem>
                             <MenuItem
                               danger
                               icon={<TrashIcon />}
                               onSelect={() =>
                                 ui.confirm({
-                                  title: `Permanently delete “${v.name}”?`,
-                                  body: "This removes the version and all of its customizations forever. This cannot be undone.",
-                                  confirmLabel: "Delete forever",
+                                  title: fmt(t.versions.deleteForeverTitle, { name: v.name }),
+                                  body: t.versions.deleteForeverBody,
+                                  confirmLabel: t.versions.deleteForever,
                                   danger: true,
                                   onConfirm: () => hardDeleteVersion(v.id),
                                 })
                               }
                             >
-                              Delete forever
+                              {t.versions.deleteForever}
                             </MenuItem>
                           </>
                         ) : (
@@ -345,32 +358,32 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                                 icon={<PencilIcon />}
                                 onSelect={() => setEditing({ id: v.id, field: "name", value: v.name })}
                               >
-                                Rename
+                                {t.common.rename}
                               </MenuItem>
                             )}
                             <MenuItem
                               icon={<TagIcon />}
                               onSelect={() => setEditing({ id: v.id, field: "tags", value: v.tags.join(", ") })}
                             >
-                              Edit tags
+                              {t.versions.editTags}
                             </MenuItem>
                             <MenuItem icon={<CopyIcon />} onSelect={() => duplicateVersion(v.id)}>
-                              Duplicate
+                              {t.common.duplicate}
                             </MenuItem>
                             {!base && (
                               <>
                                 <MenuSeparator />
                                 {tab === "archived" ? (
                                   <MenuItem icon={<ArchiveIcon />} onSelect={() => archiveVersion(v.id, false)}>
-                                    Restore from archive
+                                    {t.versions.restoreFromArchive}
                                   </MenuItem>
                                 ) : (
                                   <MenuItem icon={<ArchiveIcon />} onSelect={() => archiveVersion(v.id, true)}>
-                                    Archive
+                                    {t.common.archive}
                                   </MenuItem>
                                 )}
                                 <MenuItem danger icon={<TrashIcon />} onSelect={() => trashVersion(v.id)}>
-                                  Move to Trash
+                                  {t.versions.moveToTrash}
                                 </MenuItem>
                               </>
                             )}
@@ -387,7 +400,9 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
 
         {selected.size > 0 && (
           <div className="mt-3.5 flex items-center justify-between rounded-xl bg-zinc-900 px-4 py-2.5 text-white shadow-card dark:bg-zinc-800">
-            <span className="text-[12.5px] font-medium">{selected.size} selected</span>
+            <span className="text-[12.5px] font-medium">
+              {fmt(t.versions.selectedCount, { n: selected.size })}
+            </span>
             <div className="flex gap-1.5">
               {tab === "active" && (
                 <>
@@ -399,7 +414,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                     }}
                     className="pressable rounded-lg bg-white/10 px-2.5 py-1 text-[12px] font-medium transition-colors duration-150 hover:bg-white/20"
                   >
-                    Archive
+                    {t.common.archive}
                   </button>
                   <button
                     type="button"
@@ -409,7 +424,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                     }}
                     className="pressable rounded-lg bg-red-500/80 px-2.5 py-1 text-[12px] font-medium transition-colors duration-150 hover:bg-red-500"
                   >
-                    Move to Trash
+                    {t.versions.moveToTrash}
                   </button>
                 </>
               )}
@@ -422,7 +437,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                   }}
                   className="pressable rounded-lg bg-white/10 px-2.5 py-1 text-[12px] font-medium transition-colors duration-150 hover:bg-white/20"
                 >
-                  Restore
+                  {t.common.restore}
                 </button>
               )}
               {tab === "trash" && (
@@ -434,7 +449,7 @@ function VersionManagerInner({ onClose }: { onClose: () => void }) {
                   }}
                   className="pressable rounded-lg bg-white/10 px-2.5 py-1 text-[12px] font-medium transition-colors duration-150 hover:bg-white/20"
                 >
-                  Restore
+                  {t.common.restore}
                 </button>
               )}
             </div>

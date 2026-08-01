@@ -10,6 +10,7 @@ import {
   UndoIcon,
   UploadIcon,
 } from "@/components/ui/icons";
+import { useI18n, useT } from "@/lib/i18n/provider";
 import { nodeLabel, type ResolvedNode } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { useEditorUI } from "./editor-ui-context";
@@ -29,11 +30,12 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
   const versions = useResumeStore((s) => s.versions);
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
   const ui = useEditorUI();
+  const { t, fmt } = useI18n();
 
   const activeVersion = versions.find((v) => v.id === activeVersionId);
   const onBase = activeVersion?.isBase === 1 || activeVersion?.isBase === true;
   const isLocal = node.status === "local";
-  const label = nodeLabel(node.kind, node.data);
+  const label = nodeLabel(node.kind, node.data, t.kind);
 
   const btn =
     "pressable rounded-lg p-1.5 text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink";
@@ -41,15 +43,9 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
 
   const confirmBaseDelete = () =>
     ui.confirm({
-      title: `Delete “${label}”?`,
-      body: (
-        <>
-          This deletes it from the Default <strong>and every version</strong> of this resume,
-          including any per-version customizations of it. Versions that only need it gone from
-          themselves should hide it instead.
-        </>
-      ),
-      confirmLabel: "Delete everywhere",
+      title: fmt(t.entry.deleteTitle, { name: label }),
+      body: t.entry.deleteBody,
+      confirmLabel: t.section.deleteEverywhere,
       danger: true,
       onConfirm: () => deleteNodeHard(node.id),
     });
@@ -60,7 +56,7 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
         <button
           type="button"
           className={btn}
-          title={node.hidden ? "Show in this version" : "Hide in this version"}
+          title={node.hidden ? t.entry.showInVersion : t.entry.hideInVersion}
           onClick={() => setHidden(node.id, !node.hidden)}
         >
           {node.hidden ? <EyeOffIcon className={iconCls} /> : <EyeIcon className={iconCls} />}
@@ -71,7 +67,7 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
         <button
           type="button"
           className={`${btn} hover:!text-red-500`}
-          title={isLocal ? "Remove (only exists in this version)" : "Delete from all versions"}
+          title={isLocal ? t.entry.removeLocal : t.entry.deleteFromAll}
           onClick={() => {
             if (isLocal) deleteNodeHard(node.id);
             else confirmBaseDelete();
@@ -85,7 +81,7 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
         <Menu
           align="end"
           trigger={
-            <button type="button" className={btn} title="More">
+            <button type="button" className={btn} title={t.entry.more}>
               <DotsIcon className={iconCls} />
             </button>
           }
@@ -93,21 +89,21 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
           {node.status === "customized" && (
             <>
               <MenuItem icon={<UndoIcon />} onSelect={() => resetNode(node.id)}>
-                Reset item to Default
+                {t.entry.resetItemToDefault}
               </MenuItem>
               <MenuItem icon={<CopyIcon />} onSelect={() => ui.openCopyCustomizations([node.id])}>
-                Copy customization to versions…
+                {t.entry.copyCustomization}
               </MenuItem>
             </>
           )}
           {isLocal && (
             <>
               <MenuItem icon={<UploadIcon />} onSelect={() => promoteLocalNode(node.id)}>
-                Add to Default (all versions)
+                {t.entry.addToDefault}
               </MenuItem>
               <MenuSeparator />
               <MenuItem icon={<TrashIcon />} danger onSelect={() => deleteNodeHard(node.id)}>
-                Remove from this version
+                {t.entry.removeFromVersion}
               </MenuItem>
             </>
           )}
@@ -120,20 +116,21 @@ export function NodeControls({ node, compact = false }: { node: ResolvedNode; co
 /** Collapsed ghost row for a node hidden in the current version. */
 export function HiddenGhost({ node }: { node: ResolvedNode }) {
   const setHidden = useResumeStore((s) => s.setHidden);
-  const label = nodeLabel(node.kind, node.data);
+  const t = useT();
+  const label = nodeLabel(node.kind, node.data, t.kind);
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-hairline-strong bg-canvas/50 px-3.5 py-2.5">
       <div className="flex min-w-0 items-center gap-2 text-[12.5px] text-ink-faint">
         <EyeOffIcon className="size-3.5 shrink-0" />
-        <span className="truncate line-through decoration-ink-faint/50">{label}</span>
-        <span className="shrink-0 text-[11px]">hidden in this version</span>
+        <span dir="auto" className="truncate line-through decoration-ink-faint/50">{label}</span>
+        <span className="shrink-0 text-[11px]">{t.entry.hiddenInThisVersion}</span>
       </div>
       <button
         type="button"
         onClick={() => setHidden(node.id, false)}
         className="pressable shrink-0 rounded-lg px-2.5 py-1 text-[11.5px] font-medium text-rose-500 transition-colors duration-150 hover:bg-rose-50 dark:hover:bg-rose-500/10"
       >
-        Show
+        {t.common.show}
       </button>
     </div>
   );
@@ -141,12 +138,13 @@ export function HiddenGhost({ node }: { node: ResolvedNode }) {
 
 /** Badge for nodes that exist only in the current version. */
 export function LocalBadge() {
+  const t = useT();
   return (
     <span
       className="rounded-full bg-violet-100/80 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300"
-      title="This item exists only in this version"
+      title={t.entry.onlyHereTitle}
     >
-      Only here
+      {t.entry.onlyHere}
     </span>
   );
 }

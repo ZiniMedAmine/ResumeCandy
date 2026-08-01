@@ -1,6 +1,7 @@
 "use client";
 
 import { clampToRange, type StepperRange } from "@/lib/design";
+import { useI18n } from "@/lib/i18n/provider";
 import { MinusIcon, PlusIcon } from "./icons";
 
 /**
@@ -24,6 +25,7 @@ export function Stepper({
   /** Rendered opposite the label — usually the override/reset marker. */
   trailing?: React.ReactNode;
 }) {
+  const { dir } = useI18n();
   const steps = Math.round((range.max - range.min) / range.step);
   // A tick per step is unreadable on a wide range; ~8 segments always reads.
   const ticks = Math.min(8, steps);
@@ -57,23 +59,28 @@ export function Stepper({
           aria-valuemax={range.max}
           aria-valuenow={value}
           onKeyDown={(e) => {
-            if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            // Left and right are physical keys but a value track is read the
+            // way the page is, so RTL swaps which of them means "less".
+            const back = dir === "rtl" ? "ArrowRight" : "ArrowLeft";
+            const forward = dir === "rtl" ? "ArrowLeft" : "ArrowRight";
+            if (e.key === back || e.key === "ArrowDown") {
               e.preventDefault();
               onChange(clampToRange(range, value - range.step));
-            } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            } else if (e.key === forward || e.key === "ArrowUp") {
               e.preventDefault();
               onChange(clampToRange(range, value + range.step));
             }
           }}
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
-            const ratio = (e.clientX - rect.left) / rect.width;
+            const offset = e.clientX - rect.left;
+            const ratio = (dir === "rtl" ? rect.width - offset : offset) / rect.width;
             onChange(clampToRange(range, range.min + ratio * (range.max - range.min)));
           }}
           className="relative h-8 flex-1 cursor-pointer overflow-hidden rounded-lg bg-sunken"
         >
           <div
-            className="absolute inset-y-0 left-0 rounded-lg bg-rose-500/85 transition-[width] duration-150"
+            className="absolute inset-y-0 start-0 rounded-lg bg-rose-500/85 transition-[width] duration-150"
             style={{ width: `${filled * 100}%` }}
           />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-around">

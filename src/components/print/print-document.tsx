@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ResumePreview } from "@/components/preview/resume-preview";
 import type { PreviewTree } from "@/components/preview/shared";
 import { pageFormatOf, type DesignSettings } from "@/lib/design";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * A resume rendered for paper and nothing else.
@@ -23,6 +24,7 @@ export function PrintDocument({
   auto: boolean;
 }) {
   const format = pageFormatOf(design);
+  const t = useT();
   const [status, setStatus] = useState<"preparing" | "ready">("preparing");
 
   useEffect(() => {
@@ -88,8 +90,8 @@ export function PrintDocument({
       `}</style>
 
       {status === "preparing" && (
-        <p className="screen-only fixed left-4 top-4 z-50 rounded-lg bg-zinc-900/90 px-3 py-1.5 text-[12px] font-medium text-white">
-          Preparing document…
+        <p className="screen-only fixed start-4 top-4 z-50 rounded-lg bg-zinc-900/90 px-3 py-1.5 text-[12px] font-medium text-white">
+          {t.editor.preparingPdf}
         </p>
       )}
 

@@ -6,7 +6,8 @@ import { fetchVersionTree } from "@/app/actions/versions";
 import { LayersIcon, SearchIcon } from "@/components/ui/icons";
 import { fuzzyScore } from "@/lib/fuzzy";
 import type { VersionTreeResume, VersionTreeVersion } from "@/lib/data";
-import { relativeTime } from "@/lib/relative-time";
+import { useI18n } from "@/lib/i18n/provider";
+import { RelativeTime } from "@/components/ui/relative-time";
 import { layoutTree, type TreeInput } from "@/lib/tree-layout";
 import { editorUrl } from "@/lib/view";
 import { useResumeStore } from "@/store/resume-store";
@@ -47,6 +48,7 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
   const setActiveVersion = useResumeStore((s) => s.setActiveVersion);
   const createVersion = useResumeStore((s) => s.createVersion);
   const tab = useResumeStore((s) => s.tab);
+  const { t, fmt, dir } = useI18n();
 
   const [tree, setTree] = useState<VersionTreeResume[] | null>(null);
   const [query, setQuery] = useState("");
@@ -103,6 +105,8 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
     ];
     return ordered.map((r) => (r.id === resumeId ? { ...r, versions: seed[0].versions } : r));
   }, [tree, seed, resumeId]);
+
+  const rtl = dir === "rtl";
 
   const layout = useMemo(() => {
     const root: TreeInput<NodeData> = {
@@ -176,16 +180,20 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
                 onClose();
               }
             }}
-            placeholder="Highlight a resume or version…"
+            placeholder={t.versions.searchPlaceholder}
             className="w-full bg-transparent py-3.5 text-[14px] text-ink outline-none placeholder:text-ink-faint"
           />
           <kbd className="shrink-0 rounded border border-hairline px-1.5 py-0.5 text-[10px] text-ink-faint">
-            esc
+            {t.versions.esc}
           </kbd>
         </div>
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto bg-canvas/40">
           <div className="relative mx-auto" style={{ width: layout.width, height: layout.height }}>
+            {/* An RTL interface reads the tree from the right, so the drawing
+                is reflected at render — x → width − x. Mirroring here rather
+                than in `layoutTree` keeps that function pure geometry, with
+                its tests untouched. */}
             <svg
               className="absolute inset-0 overflow-visible"
               width={layout.width}
@@ -195,9 +203,9 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
               {layout.edges.map((edge) => (
                 <line
                   key={edge.id}
-                  x1={edge.fromX}
+                  x1={mirror(edge.fromX, layout.width, rtl)}
                   y1={edge.fromY + RADIUS}
-                  x2={edge.toX}
+                  x2={mirror(edge.toX, layout.width, rtl)}
                   y2={edge.toY - RADIUS}
                   className="stroke-hairline-strong"
                   strokeWidth={1.5}
@@ -208,7 +216,7 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
             {layout.nodes.map((node) => (
               <TreeNode
                 key={node.id}
-                x={node.x}
+                x={mirror(node.x, layout.width, rtl)}
                 y={node.y}
                 data={node.data}
                 dimmed={query.trim() !== "" && !matches(node.data)}
@@ -234,9 +242,9 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
 
         <div className="flex items-center justify-between gap-3 border-t border-hairline px-4 py-2.5 text-[10.5px] text-ink-faint">
           <span className="flex items-center gap-3">
-            <Legend className="bg-ink-faint" label="Default" />
-            <Legend className="bg-emerald-400" label="Version" />
-            <Legend className="bg-rose-500" label="Editing" />
+            <Legend className="bg-ink-faint" label={t.versions.legendDefault} />
+            <Legend className="bg-emerald-400" label={t.versions.legendVersion} />
+            <Legend className="bg-rose-500" label={t.versions.legendEditing} />
           </span>
           {canCreate ? (
             <button
@@ -247,15 +255,20 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
               }}
               className="pressable rounded-lg px-2 py-1 text-[11px] font-semibold text-rose-500 transition-colors duration-150 hover:bg-rose-50 dark:hover:bg-rose-500/10"
             >
-              Create “{trimmed}” ↵
+              {fmt(t.versions.createNamed, { name: trimmed })}
             </button>
           ) : (
-            <span>click a node to open it</span>
+            <span>{t.versions.clickHint}</span>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+/** Reflects an x coordinate about the drawing's centre line. */
+function mirror(x: number, width: number, rtl: boolean): number {
+  return rtl ? width - x : x;
 }
 
 function Legend({ className, label }: { className: string; label: string }) {
@@ -293,20 +306,29 @@ function TreeNode({
   onOpen: () => void;
   nodeRef?: React.Ref<HTMLButtonElement>;
 }) {
+  const { t, fmt } = useI18n();
   const label =
-    data.kind === "root" ? "Resumes" : data.kind === "resume" ? data.resume.name : data.version.name;
+    data.kind === "root"
+      ? t.versions.rootLabel
+      : data.kind === "resume"
+        ? data.resume.name
+        : data.version.name;
 
   const archived = data.kind === "version" && !!data.version.archivedAt;
   const base = data.kind === "version" && isBaseVersion(data.version);
 
   const caption =
-    data.kind === "version"
-      ? archived
-        ? "archived"
-        : relativeTime(data.version.lastOpenedAt ?? data.version.createdAt)
-      : data.kind === "resume"
-        ? `${data.resume.versions.length} version${data.resume.versions.length === 1 ? "" : "s"}`
-        : "";
+    data.kind === "version" ? (
+      archived ? (
+        t.versions.archived
+      ) : (
+        <RelativeTime ms={data.version.lastOpenedAt ?? data.version.createdAt} />
+      )
+    ) : data.kind === "resume" ? (
+      fmt(t.versions.versionCount, { n: data.resume.versions.length })
+    ) : (
+      ""
+    );
 
   const ring = isActive
     ? "border-rose-500 bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300"
@@ -349,6 +371,7 @@ function TreeNode({
         )}
       </span>
       <span
+        dir="auto"
         className={`mt-1.5 max-w-[104px] truncate text-[11.5px] ${
           isActive ? "font-semibold text-ink" : data.kind === "resume" ? "font-semibold text-ink" : "text-ink-muted"
         }`}

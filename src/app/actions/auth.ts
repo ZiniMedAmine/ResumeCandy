@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { db, tables } from "@/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
+import { getI18n, seedLocaleCookie } from "@/lib/i18n/server";
 
 const { collections, users } = tables;
 
@@ -71,15 +72,19 @@ export async function signUp(
   const password = String(formData.get("password") ?? "");
   const values = { name, email };
 
+  // Messages that come back to the form are chrome, so they follow the
+  // interface language — which is resolved here exactly as it is for a page.
+  const { t } = await getI18n();
+
   const fieldErrors: AuthFormState["fieldErrors"] = {};
-  if (name.length < 2) fieldErrors.name = "Please enter your name.";
-  if (!EMAIL_RE.test(email)) fieldErrors.email = "Please enter a valid email address.";
-  if (password.length < 8) fieldErrors.password = "Use at least 8 characters.";
+  if (name.length < 2) fieldErrors.name = t.auth.errorName;
+  if (!EMAIL_RE.test(email)) fieldErrors.email = t.auth.errorEmail;
+  if (password.length < 8) fieldErrors.password = t.auth.errorPassword;
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
 
   const existing = db.select({ id: users.id }).from(users).where(eq(users.email, email)).all()[0];
   if (existing) {
-    return { fieldErrors: { email: "That email is already registered." }, values };
+    return { fieldErrors: { email: t.auth.errorEmailTaken }, values };
   }
 
   // Hashing is the slow part, so it happens once, outside the transaction.
@@ -91,7 +96,7 @@ export async function signUp(
   } catch {
     // The unique index is the real guard — two simultaneous signups with the
     // same address both pass the check above but only one can insert.
-    return { fieldErrors: { email: "That email is already registered." }, values };
+    return { fieldErrors: { email: t.auth.errorEmailTaken }, values };
   }
 
   // Claim before creating: the claim only fires for a user with no collection.
@@ -108,13 +113,14 @@ export async function signIn(
   const email = normalizeEmail(formData.get("email"));
   const password = String(formData.get("password") ?? "");
   const values = { email };
+  const { t } = await getI18n();
 
   if (!email || !password) {
-    return { error: "Enter your email and password.", values };
+    return { error: t.auth.errorMissing, values };
   }
 
   const user = db
-    .select({ id: users.id, passwordHash: users.passwordHash })
+    .select({ id: users.id, passwordHash: users.passwordHash, uiLocale: users.uiLocale })
     .from(users)
     .where(eq(users.email, email))
     .all()[0];
@@ -127,11 +133,14 @@ export async function signIn(
     : await verifyPassword(password, DUMMY_HASH);
 
   if (!user || !ok) {
-    return { error: "That email and password don’t match an account.", values };
+    return { error: t.auth.errorCredentials, values };
   }
 
   claimOrphanedCollections(user.id);
   await createSession(user.id);
+  // The account's own language wins over whatever this browser asked for, so
+  // signing in on a borrowed machine still speaks the right language.
+  await seedLocaleCookie(user.uiLocale);
   redirect("/");
 }
 

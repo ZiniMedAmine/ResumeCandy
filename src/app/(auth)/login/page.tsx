@@ -3,8 +3,13 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/app/actions/auth";
 import { AuthForm } from "@/components/auth/auth-form";
 import { getCurrentUser } from "@/lib/auth/dal";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Sign in — ResumeCandy" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t.auth.metaSignIn };
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {

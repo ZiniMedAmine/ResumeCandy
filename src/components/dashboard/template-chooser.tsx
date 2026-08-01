@@ -4,13 +4,17 @@ import { useState } from "react";
 import { createResume } from "@/app/actions/resumes";
 import { ResumePreview } from "@/components/preview/resume-preview";
 import { ArrowLeftIcon, CheckIcon, SparkleIcon } from "@/components/ui/icons";
+import { Segmented } from "@/components/ui/segmented";
 import {
   DESIGN_DEFAULTS,
+  LOCALE_OPTIONS,
   PAGE_FORMATS,
-  TEMPLATES,
+  TEMPLATE_IDS,
   resolveDesign,
   type TemplateId,
 } from "@/lib/design";
+import { useI18n } from "@/lib/i18n/provider";
+import type { LocaleId } from "@/lib/locale";
 import { sampleResumeRoots } from "@/lib/sample-resume";
 import Link from "next/link";
 
@@ -22,6 +26,8 @@ import Link from "next/link";
  */
 export function TemplateChooser({ name }: { name: string }) {
   const [selected, setSelected] = useState<TemplateId>(DESIGN_DEFAULTS.template);
+  const [language, setLanguage] = useState<LocaleId>(DESIGN_DEFAULTS.language);
+  const { t, fmt } = useI18n();
   const roots = sampleResumeRoots();
   const format = PAGE_FORMATS[DESIGN_DEFAULTS.pageFormat];
 
@@ -31,35 +37,45 @@ export function TemplateChooser({ name }: { name: string }) {
         href="/"
         className="pressable mb-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:text-ink"
       >
-        <ArrowLeftIcon className="size-4 text-ink-faint" />
-        Back to resumes
+        <ArrowLeftIcon className="size-4 text-ink-faint rtl:-scale-x-100" />
+        {t.newResume.backToResumes}
       </Link>
 
       <header className="mb-8">
         <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-rose-500">
-          Step 2 of 2
+          {t.newResume.step2}
         </p>
-        <h1 className="text-[26px] font-bold tracking-tight text-ink">Choose a template</h1>
+        <h1 className="text-[26px] font-bold tracking-tight text-ink">
+          {t.newResume.chooseTemplateTitle}
+        </h1>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-muted">
-          For <span className="font-semibold text-ink">{name}</span>. You can switch template and
-          restyle everything later in Customize.
+          {fmt(t.newResume.forName, { name })} {t.newResume.switchLater}
         </p>
       </header>
 
       <form action={createResume}>
         <input type="hidden" name="name" value={name} />
         <input type="hidden" name="template" value={selected} />
+        <input type="hidden" name="language" value={language} />
+
+        <div className="mb-8 max-w-md">
+          <p className="mb-2 text-[13px] font-semibold text-ink">{t.newResume.language}</p>
+          <Segmented options={LOCALE_OPTIONS} value={language} onChange={setLanguage} />
+          <p className="mt-2 text-[12px] leading-relaxed text-ink-faint">
+            {t.newResume.languageHint}
+          </p>
+        </div>
 
         <div className="grid grid-cols-2 gap-6 lg:grid-cols-3">
-          {TEMPLATES.map((template) => {
-            const active = selected === template.id;
+          {TEMPLATE_IDS.map((id) => {
+            const active = selected === id;
             return (
-              <div key={template.id}>
+              <div key={id}>
                 <button
                   type="button"
-                  onClick={() => setSelected(template.id)}
+                  onClick={() => setSelected(id)}
                   aria-pressed={active}
-                  className={`pressable relative block w-full overflow-hidden rounded-xl bg-surface text-left transition-all duration-200 ${
+                  className={`pressable relative block w-full overflow-hidden rounded-xl bg-surface text-start transition-all duration-200 ${
                     active
                       ? "ring-2 ring-rose-400 ring-offset-4 ring-offset-[var(--canvas)] shadow-card-hover"
                       : "shadow-card hover:-translate-y-0.5 hover:shadow-card-hover"
@@ -70,19 +86,21 @@ export function TemplateChooser({ name }: { name: string }) {
                     {/* resolveDesign applies each template's natural typeface. */}
                     <ResumePreview
                       tree={{ roots }}
-                      design={resolveDesign(null, { template: template.id })}
+                      design={resolveDesign(null, { template: id })}
                       thumbnail
                     />
                   </div>
                   {active && (
-                    <span className="absolute right-2.5 top-2.5 flex size-6 items-center justify-center rounded-full bg-rose-500 text-white shadow-card">
+                    <span className="absolute end-2.5 top-2.5 flex size-6 items-center justify-center rounded-full bg-rose-500 text-white shadow-card">
                       <CheckIcon className="size-3.5" />
                     </span>
                   )}
                 </button>
                 <div className="mt-3">
-                  <p className="text-[14px] font-semibold text-ink">{template.name}</p>
-                  <p className="mt-0.5 text-[12px] leading-snug text-ink-faint">{template.description}</p>
+                  <p className="text-[14px] font-semibold text-ink">{t.design.template[id].name}</p>
+                  <p className="mt-0.5 text-[12px] leading-snug text-ink-faint">
+                    {t.design.template[id].description}
+                  </p>
                 </div>
               </div>
             );
@@ -97,9 +115,11 @@ export function TemplateChooser({ name }: { name: string }) {
               <span className="flex size-11 items-center justify-center rounded-full bg-sunken text-ink-faint">
                 <SparkleIcon className="size-5" />
               </span>
-              <p className="text-[13px] font-semibold text-ink-muted">More templates coming</p>
+              <p className="text-[13px] font-semibold text-ink-muted">
+                {t.newResume.moreTemplates}
+              </p>
               <p className="text-[11.5px] leading-relaxed text-ink-faint">
-                Extra layouts will appear here and can be applied to resumes you’ve already made.
+                {t.newResume.moreTemplatesHint}
               </p>
             </div>
           </div>
@@ -110,10 +130,10 @@ export function TemplateChooser({ name }: { name: string }) {
             type="submit"
             className="pressable rounded-xl bg-gradient-to-r from-rose-500 to-orange-400 px-6 py-3 text-[13.5px] font-semibold text-white shadow-card transition-all duration-150 hover:shadow-card-hover hover:brightness-[1.03]"
           >
-            Create resume
+            {t.newResume.create}
           </button>
           <span className="text-[12.5px] text-ink-faint">
-            Starts you in the editor with {TEMPLATES.find((t) => t.id === selected)?.name}.
+            {fmt(t.newResume.startsWith, { template: t.design.template[selected].name })}
           </span>
         </div>
       </form>

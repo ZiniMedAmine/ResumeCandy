@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { fontStack, pageFormatOf, type DesignSettings } from "@/lib/design";
+import { designDirection, fontStack, pageFormatOf, type DesignSettings } from "@/lib/design";
 import {
   computePageLayout,
   sameLayout,
@@ -109,6 +109,7 @@ export function PagedPaper({
 }) {
   const { thumbnail, print } = usePreviewMode();
 
+  const dir = designDirection(design);
   const format = pageFormatOf(design);
   const marginX = design.marginX;
   const marginY = design.marginY;
@@ -175,10 +176,13 @@ export function PagedPaper({
 
   return (
     <div ref={outerRef} className="relative w-full">
-      {/* Off-screen measuring copy: same width and typography, zero pushes. */}
+      {/* Off-screen measuring copy: same width, typography and direction, zero
+          pushes. `dir` matters as much as the width here — measuring an LTR
+          layout and rendering an RTL one would silently plan the page breaks
+          for a document that is not the one on screen. */}
       {!thumbnail && (
         <div className="pointer-events-none absolute h-0 w-0 overflow-hidden" aria-hidden>
-          <div ref={measureRef} style={{ width: contentWidth, ...contentVars(design) }}>
+          <div ref={measureRef} dir={dir} style={{ width: contentWidth, ...contentVars(design) }}>
             <BlockMarginContext.Provider value={EMPTY_MARGINS}>{children}</BlockMarginContext.Provider>
           </div>
         </div>
@@ -207,6 +211,7 @@ export function PagedPaper({
           ))}
 
           <div
+            dir={dir}
             className={`absolute text-zinc-800 ${thumbnail ? "overflow-hidden" : ""}`}
             style={{
               left: marginX,
@@ -226,6 +231,7 @@ export function PagedPaper({
             pages.map((i) => (
               <div
                 key={`footer-${i}`}
+                dir={dir}
                 className="pointer-events-none absolute z-10 flex items-end justify-between text-[10px] text-zinc-400"
                 style={{
                   top: i * (format.height + gap) + format.height - marginY,
@@ -237,7 +243,9 @@ export function PagedPaper({
               >
                 <span className="truncate">{footerParts.join(" · ")}</span>
                 {design.footerPageNumbers && (
-                  <span className="shrink-0 tabular-nums">
+                  // Pinned LTR: "1 / 2" is written the same way in every
+                  // language, and an RTL paragraph would reorder it to "2 / 1".
+                  <span dir="ltr" className="shrink-0 tabular-nums">
                     {i + 1} / {pageCount}
                   </span>
                 )}
@@ -262,6 +270,7 @@ export function PagedPaper({
             pages.map((i) => (
               <div
                 key={`label-${i}`}
+                dir="ltr"
                 className="pointer-events-none absolute left-0 z-10 flex items-center justify-center text-[10px] text-zinc-300"
                 style={{
                   top: i * (format.height + gap) + format.height - marginY,

@@ -11,6 +11,7 @@ import {
   UndoIcon,
   UploadIcon,
 } from "@/components/ui/icons";
+import { useI18n } from "@/lib/i18n/provider";
 import { nodeLabel, type ResolvedNode } from "@/lib/resume/types";
 import { useResumeStore } from "@/store/resume-store";
 import { useEditorUI } from "./editor-ui-context";
@@ -31,6 +32,7 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
   const versions = useResumeStore((s) => s.versions);
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
   const ui = useEditorUI();
+  const { t, fmt } = useI18n();
 
   const activeVersion = versions.find((v) => v.id === activeVersionId);
   const onBase = activeVersion?.isBase === 1 || activeVersion?.isBase === true;
@@ -40,15 +42,9 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
 
   const confirmBaseDelete = () =>
     ui.confirm({
-      title: `Delete “${nodeLabel(node.kind, node.data)}”?`,
-      body: (
-        <>
-          This deletes it from the Default <strong>and every version</strong> of this resume,
-          including any per-version customizations of it. Versions that only need it gone from
-          themselves should hide it instead.
-        </>
-      ),
-      confirmLabel: "Delete everywhere",
+      title: fmt(t.entry.deleteTitle, { name: nodeLabel(node.kind, node.data, t.kind) }),
+      body: t.entry.deleteBody,
+      confirmLabel: t.section.deleteEverywhere,
       danger: true,
       onConfirm: () => {
         deleteNodeHard(node.id);
@@ -60,13 +56,13 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
     <div>
       <div className="flex items-center gap-2 px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold tracking-tight text-ink">Edit entry</h3>
+          <h3 className="text-[15px] font-semibold tracking-tight text-ink">{t.entry.editTitle}</h3>
           <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-ink-faint">
-            {entryKindLabel(node)}
+            {entryKindLabel(node, t)}
             {node.status === "customized" && (
               <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
                 <span className="size-1.5 rounded-full bg-amber-400" />
-                customized here
+                {t.entry.customizedHere}
               </span>
             )}
           </p>
@@ -79,8 +75,8 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
             type="button"
             onClick={() => setHidden(node.id, !node.hidden)}
             className={iconBtn}
-            title={node.hidden ? "Show in this version" : "Hide in this version"}
-            aria-label={node.hidden ? "Show in this version" : "Hide in this version"}
+            title={node.hidden ? t.entry.showInVersion : t.entry.hideInVersion}
+            aria-label={node.hidden ? t.entry.showInVersion : t.entry.hideInVersion}
           >
             {node.hidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
           </button>
@@ -98,8 +94,8 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
               }
             }}
             className={`${iconBtn} hover:!text-red-500`}
-            title={isLocal ? "Remove (only exists in this version)" : "Delete from all versions"}
-            aria-label="Delete entry"
+            title={isLocal ? t.entry.removeLocal : t.entry.deleteFromAll}
+            aria-label={t.entry.deleteEntry}
           >
             <TrashIcon className="size-4" />
           </button>
@@ -109,7 +105,7 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
           <Menu
             align="end"
             trigger={
-              <button type="button" className={iconBtn} title="More options">
+              <button type="button" className={iconBtn} title={t.entry.moreOptions}>
                 <DotsIcon className="size-4" />
               </button>
             }
@@ -117,17 +113,17 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
             {node.status === "customized" && (
               <>
                 <MenuItem icon={<UndoIcon />} onSelect={() => resetNode(node.id)}>
-                  Reset entry to Default
+                  {t.entry.resetToDefault}
                 </MenuItem>
                 <MenuItem icon={<CopyIcon />} onSelect={() => ui.openCopyCustomizations([node.id])}>
-                  Copy customization to versions…
+                  {t.entry.copyCustomization}
                 </MenuItem>
               </>
             )}
             {isLocal && (
               <>
                 <MenuItem icon={<UploadIcon />} onSelect={() => promoteLocalNode(node.id)}>
-                  Add to Default (all versions)
+                  {t.entry.addToDefault}
                 </MenuItem>
                 <MenuSeparator />
                 <MenuItem
@@ -138,7 +134,7 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
                     onDone();
                   }}
                 >
-                  Remove from this version
+                  {t.entry.removeFromVersion}
                 </MenuItem>
               </>
             )}
@@ -157,7 +153,7 @@ export function EntryEditor({ node, onDone }: { node: ResolvedNode; onDone: () =
           className="pressable flex items-center gap-2 rounded-full bg-gradient-to-r from-rose-500 to-orange-400 px-8 py-2.5 text-[13.5px] font-semibold text-white shadow-card transition-all duration-150 hover:shadow-card-hover hover:brightness-[1.03]"
         >
           <CheckIcon className="size-4" />
-          Done
+          {t.common.done}
         </button>
       </div>
     </div>

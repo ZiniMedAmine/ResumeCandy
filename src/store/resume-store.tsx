@@ -6,7 +6,9 @@ import { createStore, useStore, type StoreApi } from "zustand";
 import * as contentActions from "@/app/actions/content";
 import * as resumeActions from "@/app/actions/resumes";
 import * as versionActions from "@/app/actions/versions";
-import { resolveDesign, type DesignSettings } from "@/lib/design";
+import { fontForLocale, resolveDesign, type DesignSettings } from "@/lib/design";
+import type { Dictionary, Params } from "@/lib/i18n";
+import { isDefaultHeading, sectionTitle, type LocaleId } from "@/lib/locale";
 import type { ResumePayload } from "@/lib/payload";
 import {
   mergedOverride,
@@ -23,6 +25,7 @@ import {
   type NodeKind,
   type NodeOverride,
   type ResumeNode,
+  type SectionType,
   type Version,
 } from "@/lib/resume/types";
 import { editorUrl, parseView, type EditorTab } from "@/lib/view";
@@ -32,11 +35,24 @@ export { editorUrl, parseView };
 
 /* --------------------------------- types --------------------------------- */
 
+/**
+ * Toasts name a message instead of carrying one.
+ *
+ * A zustand store is not a component, so it cannot read the interface language
+ * from a hook — and threading a dictionary into every action would put locale
+ * knowledge in a layer that has no business holding it. Emitting `{ message,
+ * params }` and letting `toast-host` translate at render keeps the store
+ * entirely language-free, and makes the language switch retroactive: a toast
+ * already on screen re-renders in the new language.
+ */
+export type ToastKey = keyof Dictionary["toast"];
+
 export interface Toast {
   id: number;
-  message: string;
+  /** Key into `t.toast`, not a sentence. */
+  message: ToastKey;
+  params?: Params;
   kind: "info" | "error" | "success";
-  undoLabel?: string;
   undo?: () => void;
 }
 
@@ -63,7 +79,7 @@ export interface ResumeStoreState {
   syncFromUrl(versionId: string | null, tab: EditorTab): void;
 
   /* content edits (optimistic; persistence debounced/fired in background) */
-  editField(nodeId: string, field: string, value: unknown): void;
+  editField(nodeId: string, field: string, value: unknown, opts?: { silent?: boolean }): void;
   setHidden(nodeId: string, hidden: boolean, opts?: { silent?: boolean }): void;
   moveNode(nodeId: string, direction: -1 | 1): void;
   /** Drop a node at `toIndex` among its siblings, counted with the node removed. */
@@ -80,6 +96,8 @@ export interface ResumeStoreState {
 
   /* design settings (same layering as content: Default = base, others = patch) */
   updateDesign(key: keyof DesignSettings, value: unknown): void;
+  /** Language plus everything that has to move with it (font, headings). */
+  setLanguage(locale: LocaleId): void;
   resetDesignKey(key: keyof DesignSettings): void;
   resetDesignAll(): void;
 
@@ -129,7 +147,7 @@ export function createResumeStore(
       fn()
         .catch((err) => {
           console.error(err);
-          get().toast({ message: "Failed to save — your last change may not persist", kind: "error" });
+          get().toast({ message: "saveFailed", kind: "error" });
         })
         .finally(() => set((s) => ({ pendingSaves: s.pendingSaves - 1 })));
     };
@@ -143,7 +161,7 @@ export function createResumeStore(
         fn()
           .catch((err) => {
             console.error(err);
-            get().toast({ message: "Failed to save — your last change may not persist", kind: "error" });
+            get().toast({ message: "saveFailed", kind: "error" });
           })
           .finally(() => set((s) => ({ pendingSaves: s.pendingSaves - 1 })));
       }, ms));
@@ -284,7 +302,7 @@ export function createResumeStore(
 
       /* ---------------------------- content editing --------------------------- */
 
-      editField(nodeId, field, value) {
+      editField(nodeId, field, value, opts) {
         const s = get();
         const version = activeVersion();
         const node = s.nodes[nodeId];
@@ -299,11 +317,11 @@ export function createResumeStore(
           const next = withFieldEdit(existing, version.id, nodeId, node.data, field, value);
           setOverride(version.id, nodeId, next);
           const nowCustomized = !!next?.patch && field in next.patch;
-          if (!wasCustomized && nowCustomized) {
+          if (!wasCustomized && nowCustomized && !opts?.silent) {
             get().toast({
-              message: `Customized for ${version.name} — other versions keep the Default`,
+              message: "customizedFor",
+              params: { name: version.name },
               kind: "info",
-              undoLabel: "Undo",
               undo: () => get().resetField(nodeId, field, { silent: true }),
             });
           }
@@ -327,11 +345,10 @@ export function createResumeStore(
         const existing = s.overrides[version.id]?.[nodeId];
         setOverride(version.id, nodeId, withHidden(existing, version.id, nodeId, hidden));
         if (hidden && !opts?.silent) {
-          const where = isBase(version) ? "the Default" : version.name;
           get().toast({
-            message: `Hidden in ${where}${isBase(version) ? " — versions keep their own visibility" : " — it stays in the Default"}`,
+            message: isBase(version) ? "hiddenInDefault" : "hiddenInVersion",
+            params: { name: version.name },
             kind: "info",
-            undoLabel: "Undo",
             undo: () => get().setHidden(nodeId, false, { silent: true }),
           });
         }
@@ -412,11 +429,9 @@ export function createResumeStore(
         removeNodesFromStore(removed.map((n) => n.id));
         const removedOverrides = lastRemovedOverrides;
         get().toast({
-          message: node.ownerVersionId
-            ? `Removed from ${version.name}`
-            : "Deleted from the Default and every version",
+          message: node.ownerVersionId ? "removedFrom" : "deletedEverywhere",
+          params: { name: version.name },
           kind: "info",
-          undoLabel: "Undo",
           undo: () => {
             set((st) => {
               const nodes = { ...st.nodes };
@@ -449,9 +464,8 @@ export function createResumeStore(
         setOverride(version.id, nodeId, withFieldReset(existing, field));
         if (!opts?.silent) {
           get().toast({
-            message: "Field reset to the Default value",
+            message: "fieldReset",
             kind: "info",
-            undoLabel: "Undo",
             undo: () => {
               setOverride(version.id, nodeId, beforeRow);
               run(() => contentActions.restoreOverrides({ resumeId: s.resumeId, overrides: [beforeRow] }));
@@ -470,9 +484,8 @@ export function createResumeStore(
         if (!existing) return;
         setOverride(version.id, nodeId, null);
         get().toast({
-          message: "Reset to the Default",
+          message: "resetToDefault",
           kind: "info",
-          undoLabel: "Undo",
           undo: () => {
             setOverride(version.id, nodeId, existing);
             run(() => contentActions.restoreOverrides({ resumeId: s.resumeId, overrides: [existing] }));
@@ -506,9 +519,9 @@ export function createResumeStore(
         });
 
         get().toast({
-          message: sectionId ? "Section reset to the Default" : `${version.name} reset to the Default`,
+          message: sectionId ? "sectionReset" : "versionReset",
+          params: { name: version.name },
           kind: "success",
-          undoLabel: "Undo",
           undo: () => {
             set((st) => {
               const nodes = { ...st.nodes };
@@ -543,9 +556,8 @@ export function createResumeStore(
         patchNodeData(nodeId, field, value);
         setOverride(version.id, nodeId, withFieldReset(existing, field));
         get().toast({
-          message: "Pushed to the Default — versions without their own edit now use it",
+          message: "pushedToDefault",
           kind: "success",
-          undoLabel: "Undo",
           undo: () => {
             patchNodeData(nodeId, field, baseBefore);
             setOverride(version.id, nodeId, existing);
@@ -588,7 +600,7 @@ export function createResumeStore(
           }
           return { nodes };
         });
-        get().toast({ message: "Added to the Default — now part of every version", kind: "success" });
+        get().toast({ message: "addedToDefault", kind: "success" });
         run(() =>
           contentActions.promoteNodeToBase({ resumeId: s.resumeId, versionId: version.id, nodeId }),
         );
@@ -646,7 +658,8 @@ export function createResumeStore(
         });
 
         get().toast({
-          message: `Copied to ${targets.length} version${targets.length === 1 ? "" : "s"}`,
+          message: "copiedToVersions",
+          params: { n: targets.length },
           kind: "success",
         });
 
@@ -693,7 +706,8 @@ export function createResumeStore(
           }
         }
         get().toast({
-          message: `Value copied to ${toVersionIds.length} version${toVersionIds.length === 1 ? "" : "s"}`,
+          message: "valueCopiedToVersions",
+          params: { n: toVersionIds.length },
           kind: "success",
         });
         run(() =>
@@ -725,6 +739,58 @@ export function createResumeStore(
             }),
           );
         }
+      },
+
+      /**
+       * Changing the language is never just one key: a Latin-only font cannot
+       * draw Arabic, and headings the user never personalised should follow
+       * the language rather than being left behind in the old one.
+       *
+       * The heading rewrites go through `editField`, so on a named version
+       * they land as ordinary per-version overrides — the French version's
+       * headings are French, the Default stays English, and the
+       * customizations panel lists them like any other translated field.
+       */
+      setLanguage(locale) {
+        const s = get();
+        const version = activeVersion();
+        if (!version) return;
+        const patch = isBase(version) ? null : (s.settingsPatches[version.id] ?? null);
+        const before = resolveDesign(s.baseSettings as Partial<DesignSettings> | null, patch);
+        if (before.language === locale) return;
+
+        get().updateDesign("language", locale);
+
+        const font = fontForLocale(before.fontFamily, locale);
+        if (font !== before.fontFamily) get().updateDesign("fontFamily", font);
+        if (before.nameFont) {
+          const nameFont = fontForLocale(before.nameFont, locale);
+          if (nameFont !== before.nameFont) get().updateDesign("nameFont", nameFont);
+        }
+
+        const renamed: { nodeId: string; title: string }[] = [];
+        for (const node of resolveActive().roots) {
+          if (node.kind !== "section") continue;
+          const title = typeof node.data.title === "string" ? node.data.title : "";
+          if (!isDefaultHeading(title, node.data.sectionType as SectionType)) continue;
+          const next = sectionTitle(node.data.sectionType as SectionType, locale);
+          if (next === title) continue;
+          renamed.push({ nodeId: node.id, title });
+          // Silent: one summary toast below beats one per heading.
+          get().editField(node.id, "title", next, { silent: true });
+        }
+
+        if (renamed.length === 0) return;
+        get().toast({
+          message: "headingsTranslated",
+          params: { n: renamed.length },
+          kind: "info",
+          undo: () => {
+            for (const { nodeId, title } of renamed) {
+              get().editField(nodeId, "title", title, { silent: true });
+            }
+          },
+        });
       },
 
       resetDesignKey(key) {
@@ -759,9 +825,9 @@ export function createResumeStore(
         if (keys.length === 0) return;
         set((st) => ({ settingsPatches: { ...st.settingsPatches, [version.id]: null } }));
         get().toast({
-          message: `Design reset — ${version.name} now follows the Default`,
+          message: "designReset",
+          params: { name: version.name },
           kind: "success",
-          undoLabel: "Undo",
           undo: () => {
             set((st) => ({ settingsPatches: { ...st.settingsPatches, [version.id]: current } }));
             run(() =>
@@ -864,7 +930,7 @@ export function createResumeStore(
         let name = `${source.name} (copy)`;
         for (let i = 2; names.has(name); i++) name = `${source.name} (copy ${i})`;
         const id = get().createVersion(name, versionId);
-        get().toast({ message: `Duplicated as “${name}”`, kind: "success" });
+        get().toast({ message: "duplicatedAs", params: { name }, kind: "success" });
         return id;
       },
 
@@ -900,9 +966,9 @@ export function createResumeStore(
         }
         if (archived) {
           get().toast({
-            message: `“${version.name}” archived`,
+            message: "versionArchived",
+            params: { name: version.name },
             kind: "info",
-            undoLabel: "Undo",
             undo: () => get().archiveVersion(versionId, false),
           });
         }
@@ -922,9 +988,9 @@ export function createResumeStore(
           get().setActiveVersion(baseVersion().id);
         }
         get().toast({
-          message: `“${version.name}” moved to Trash — kept for 30 days`,
+          message: "versionTrashed",
+          params: { name: version.name },
           kind: "info",
-          undoLabel: "Undo",
           undo: () => get().restoreTrashed(versionId),
         });
         run(() => versionActions.trashVersion({ resumeId: s.resumeId, versionId, trashed: true }));
@@ -962,7 +1028,7 @@ export function createResumeStore(
         if (s.activeVersionId === versionId) {
           get().setActiveVersion(baseVersion().id);
         }
-        get().toast({ message: `“${version.name}” permanently deleted`, kind: "info" });
+        get().toast({ message: "versionDeleted", params: { name: version.name }, kind: "info" });
         run(() => versionActions.hardDeleteVersion({ resumeId: s.resumeId, versionId }));
       },
 
@@ -990,9 +1056,9 @@ export function createResumeStore(
           get().setActiveVersion(baseVersion().id);
         }
         get().toast({
-          message: `${affected.length} version${affected.length === 1 ? "" : "s"} ${
-            op === "archive" ? "archived" : op === "unarchive" ? "restored" : op === "trash" ? "moved to Trash" : "restored"
-          }`,
+          message:
+            op === "archive" ? "bulkArchived" : op === "trash" ? "bulkTrashed" : "bulkRestored",
+          params: { n: affected.length },
           kind: "success",
         });
         run(() => versionActions.bulkVersionOp({ resumeId: s.resumeId, versionIds, op }));

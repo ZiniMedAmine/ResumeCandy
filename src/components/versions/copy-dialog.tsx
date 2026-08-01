@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
+import { useI18n, useT } from "@/lib/i18n/provider";
 import { isHiddenFlag, nodeLabel } from "@/lib/resume/types";
 import { useResolvedTree, useResumeStore } from "@/store/resume-store";
 
@@ -17,6 +18,7 @@ function VersionTargetList({
   onToggle: (id: string) => void;
 }) {
   const versions = useResumeStore((s) => s.versions);
+  const t = useT();
   const targets = versions.filter((v) => {
     if (v.deletedAt) return false;
     if (excludeIds.includes(v.id)) return false;
@@ -27,7 +29,7 @@ function VersionTargetList({
   return (
     <div className="max-h-44 space-y-0.5 overflow-y-auto rounded-lg border border-hairline p-1.5">
       {targets.length === 0 && (
-        <p className="px-2 py-3 text-center text-[12px] text-ink-faint">No other versions yet.</p>
+        <p className="px-2 py-3 text-center text-[12px] text-ink-faint">{t.versions.noOtherVersions}</p>
       )}
       {targets.map((v) => {
         const base = v.isBase === 1 || v.isBase === true;
@@ -43,9 +45,17 @@ function VersionTargetList({
               className="size-3.5 accent-rose-600"
             />
             <span className="flex-1 text-[13px] text-ink">
-              {v.name}
-              {base && <span className="ml-1.5 text-[10.5px] font-semibold uppercase text-ink-faint">default</span>}
-              {v.archivedAt && <span className="ml-1.5 text-[10.5px] uppercase text-ink-faint">archived</span>}
+              <span dir="auto">{v.name}</span>
+              {base && (
+                <span className="ms-1.5 text-[10.5px] font-semibold uppercase text-ink-faint">
+                  {t.versions.defaultBadge}
+                </span>
+              )}
+              {v.archivedAt && (
+                <span className="ms-1.5 text-[10.5px] uppercase text-ink-faint">
+                  {t.versions.archived}
+                </span>
+              )}
             </span>
           </label>
         );
@@ -83,6 +93,7 @@ function CopyCustomizationsInner({
   const overrides = useResumeStore((s) => s.overrides);
   const nodes = useResumeStore((s) => s.nodes);
   const copyCustomizations = useResumeStore((s) => s.copyCustomizations);
+  const { t, fmt } = useI18n();
   const tree = useResolvedTree(activeVersionId);
 
   const overrideItems = useMemo(() => {
@@ -113,7 +124,7 @@ function CopyCustomizationsInner({
 
   const labelOf = (nodeId: string) => {
     const n = tree.byId.get(nodeId);
-    return n ? nodeLabel(n.kind, n.data) : "(removed item)";
+    return n ? nodeLabel(n.kind, n.data, t.kind) : t.versions.removedItem;
   };
 
   const activeVersion = versions.find((v) => v.id === activeVersionId);
@@ -127,16 +138,21 @@ function CopyCustomizationsInner({
   };
 
   return (
-    <Dialog open onClose={onClose} title={`Copy from “${activeVersion?.name}”`} width="max-w-lg">
+    <Dialog
+      open
+      onClose={onClose}
+      title={fmt(t.versions.copyFrom, { name: activeVersion?.name ?? "" })}
+      width="max-w-lg"
+    >
       <div className="space-y-4 px-5 py-4">
         <div>
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-            What to copy
+            {t.versions.whatToCopy}
           </p>
           <div className="max-h-44 space-y-0.5 overflow-y-auto rounded-lg border border-hairline p-1.5">
             {allItems.length === 0 && (
               <p className="px-2 py-3 text-center text-[12px] text-ink-faint">
-                This version has no customizations to copy.
+                {t.versions.nothingToCopy}
               </p>
             )}
             {allItems.map(({ id, local }) => (
@@ -157,12 +173,12 @@ function CopyCustomizationsInner({
                   }
                   className="size-3.5 accent-rose-600"
                 />
-                <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+                <span dir="auto" className="min-w-0 flex-1 truncate text-[13px] text-ink">
                   {labelOf(id)}
                 </span>
                 {local && (
                   <span className="shrink-0 rounded-full bg-violet-100/80 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
-                    item
+                    {t.versions.itemBadge}
                   </span>
                 )}
               </label>
@@ -172,7 +188,7 @@ function CopyCustomizationsInner({
 
         <div>
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-            Into versions
+            {t.versions.intoVersions}
           </p>
           <VersionTargetList
             excludeIds={[activeVersionId]}
@@ -188,7 +204,7 @@ function CopyCustomizationsInner({
             }
           />
           <p className="mt-1.5 text-[11.5px] leading-snug text-ink-faint">
-            To apply a customization to the Default itself, use “Push to Default” on the field instead.
+            {t.versions.pushInsteadHint}
           </p>
         </div>
 
@@ -198,7 +214,7 @@ function CopyCustomizationsInner({
             onClick={onClose}
             className="pressable rounded-lg px-3 py-1.5 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken "
           >
-            Cancel
+            {t.common.cancel}
           </button>
           <button
             type="button"
@@ -206,7 +222,9 @@ function CopyCustomizationsInner({
             onClick={apply}
             className="pressable rounded-lg bg-gradient-to-r from-rose-500 to-orange-400 px-3.5 py-2 text-[13px] font-semibold text-white shadow-card transition-all duration-150 hover:brightness-[1.03] disabled:opacity-40"
           >
-            Copy to {targets.size || "…"} version{targets.size === 1 ? "" : "s"}
+            {targets.size === 0
+              ? t.versions.copyToNone
+              : fmt(t.versions.copyToCount, { n: targets.size })}
           </button>
         </div>
       </div>
@@ -237,12 +255,16 @@ function CopyFieldInner({
 }) {
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
   const copyFieldTo = useResumeStore((s) => s.copyFieldTo);
+  const t = useT();
   const [targets, setTargets] = useState<Set<string>>(new Set());
 
   return (
-    <Dialog open onClose={onClose} title="Copy value to versions" width="max-w-md">
+    <Dialog open onClose={onClose} title={t.versions.copyValueTitle} width="max-w-md">
       <div className="space-y-4 px-5 py-4">
-        <p className="rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] leading-snug text-ink-muted">
+        <p
+          dir="auto"
+          className="rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] leading-snug text-ink-muted"
+        >
           “{String(payload.value ?? "")}”
         </p>
         <VersionTargetList
@@ -259,7 +281,7 @@ function CopyFieldInner({
           }
         />
         <p className="text-[11.5px] leading-snug text-ink-faint">
-          Copying into the Default changes the value every inheriting version sees.
+          {t.versions.copyIntoDefaultHint}
         </p>
         <div className="flex justify-end gap-2">
           <button
@@ -267,7 +289,7 @@ function CopyFieldInner({
             onClick={onClose}
             className="pressable rounded-lg px-3 py-1.5 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken "
           >
-            Cancel
+            {t.common.cancel}
           </button>
           <button
             type="button"
@@ -278,7 +300,7 @@ function CopyFieldInner({
             }}
             className="pressable rounded-lg bg-gradient-to-r from-rose-500 to-orange-400 px-3.5 py-2 text-[13px] font-semibold text-white shadow-card transition-all duration-150 hover:brightness-[1.03] disabled:opacity-40"
           >
-            Copy value
+            {t.versions.copyValue}
           </button>
         </div>
       </div>

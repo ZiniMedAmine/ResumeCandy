@@ -184,70 +184,62 @@ export function isHiddenFlag(v: number | boolean | null | undefined): boolean {
   return v === true || v === 1;
 }
 
-/** Human label for a node, used in diff lists and the customizations panel. */
-export function nodeLabel(kind: NodeKind, data: NodeData): string {
+/**
+ * The names of things, supplied by the caller.
+ *
+ * The engine is pure data over pure functions and must not know which language
+ * the interface happens to be in, so the fallback wording is passed in rather
+ * than baked here. In practice the caller hands over `t.kind` / `t.field`
+ * straight from the dictionary.
+ */
+export type KindLabels = Record<NodeKind, string>;
+export type FieldLabels = Record<string, string>;
+
+/**
+ * Human label for a node, used in diff lists and the customizations panel.
+ *
+ * The content itself is preferred wherever it exists — a role's own title, a
+ * project's own name — and `labels` only supplies the fallback for a node that
+ * is still empty.
+ */
+export function nodeLabel(kind: NodeKind, data: NodeData, labels: KindLabels): string {
   const s = (k: string) => {
     const v = data[k];
     return typeof v === "string" ? v.trim() : "";
   };
   switch (kind) {
     case "header":
-      return s("fullName") || "Header";
+      return s("fullName") || labels.header;
     case "section":
-      return s("title") || "Section";
+      return s("title") || labels.section;
     case "experience":
-      return [s("title"), s("company")].filter(Boolean).join(" · ") || "Experience";
+      return [s("title"), s("company")].filter(Boolean).join(" · ") || labels.experience;
     case "education":
-      return [s("degree"), s("school")].filter(Boolean).join(" · ") || "Education";
+      return [s("degree"), s("school")].filter(Boolean).join(" · ") || labels.education;
     case "project":
-      return s("name") || "Project";
+      return s("name") || labels.project;
     case "skillGroup":
-      return s("name") || "Skill group";
+      return s("name") || labels.skillGroup;
     case "skill":
-      return s("name") || "Skill";
+      return s("name") || labels.skill;
     case "bullet": {
       const t = s("text");
-      return t.length > 72 ? `${t.slice(0, 72)}…` : t || "Bullet";
+      return t.length > 72 ? `${t.slice(0, 72)}…` : t || labels.bullet;
     }
     case "certification":
-      return s("name") || "Certification";
+      return s("name") || labels.certification;
     case "reference":
-      return s("name") || "Reference";
+      return s("name") || labels.reference;
     case "language":
-      return [s("name"), s("level")].filter(Boolean).join(" — ") || "Language";
+      return [s("name"), s("level")].filter(Boolean).join(" — ") || labels.language;
     case "text": {
       const t = s("text");
-      return t.length > 72 ? `${t.slice(0, 72)}…` : t || "Text";
+      return t.length > 72 ? `${t.slice(0, 72)}…` : t || labels.text;
     }
   }
 }
 
-/** Field ordering + labels for the editor and diff views. */
-export const FIELD_LABELS: Record<string, string> = {
-  fullName: "Full name",
-  headline: "Headline",
-  email: "Email",
-  phone: "Phone",
-  location: "Location",
-  website: "Website",
-  summary: "Summary",
-  title: "Title",
-  sectionType: "Section type",
-  company: "Company",
-  startDate: "Start date",
-  endDate: "End date",
-  school: "School",
-  degree: "Degree",
-  field: "Field of study",
-  name: "Name",
-  url: "URL",
-  description: "Description",
-  text: "Text",
-  issuer: "Issuer",
-  date: "Date",
-  level: "Level",
-};
-
-export function fieldLabel(field: string): string {
-  return FIELD_LABELS[field] ?? field;
+/** Falls back to the raw field name, so a new field is never invisible. */
+export function fieldLabel(field: string, labels: FieldLabels): string {
+  return labels[field] ?? field;
 }

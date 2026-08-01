@@ -26,6 +26,10 @@ export const users = sqliteTable(
     name: text("name").notNull(),
     // scrypt, as "scrypt$N$r$p$salt$hash" — never a reversible encoding.
     passwordHash: text("password_hash").notNull(),
+    // Language of the *interface*, not of any résumé — each of those carries
+    // its own. NULL means "follow the browser", which is the right default for
+    // an account that has never expressed a preference.
+    uiLocale: text("ui_locale"),
     createdAt: integer("created_at").notNull().$defaultFn(now),
   },
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
