@@ -55,6 +55,10 @@ export function ensureSeeded(): void {
           tags: ["big-tech"],
           // Per-version design override: Google runs a navy accent.
           settingsPatch: { accentColor: "#1e3a8a" },
+          // The application this version went to — never printed.
+          links: [
+            { id: nanoid(10), kind: "posting", label: "Software Engineer, Cloud", url: "https://careers.google.com/" },
+          ],
         },
         { id: vAmazon, resumeId: seResumeId, name: "Amazon", createdFromVersionId: vDefault, tags: ["big-tech"] },
       ])
@@ -80,6 +84,24 @@ export function ensureSeeded(): void {
         summary:
           "Full-stack engineer with 6 years of experience building web platforms end to end. Comfortable owning features from database schema to pixel-perfect UI, with a bias for shipping and measuring.",
       },
+    });
+
+    // Profile links live under the header as their own nodes, so versions can
+    // hide, reorder or add to them like any other content.
+    const contactRanks = ranksBetween(null, null, 2);
+    push({
+      id: id(),
+      parentId: seNodes[0].id,
+      kind: "contact",
+      rank: contactRanks[0],
+      data: { type: "linkedin", value: "linkedin.com/in/aminezini", label: "" },
+    });
+    push({
+      id: id(),
+      parentId: seNodes[0].id,
+      kind: "contact",
+      rank: contactRanks[1],
+      data: { type: "github", value: "github.com/aminezini", label: "" },
     });
 
     const secExp = push({

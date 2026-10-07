@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog } from "@/components/ui/dialog";
-import { sectionIcon } from "@/components/ui/section-icons";
+import { SectionIcon } from "@/components/ui/section-icons";
 import { useT } from "@/lib/i18n/provider";
 import { sectionTitle, type LocaleId } from "@/lib/locale";
 import { enterDelay } from "@/lib/motion";
@@ -36,7 +36,6 @@ export function AddContentDialog({
     <Dialog open={open} onClose={onClose} title={t.content.addContentTitle} width="max-w-4xl">
       <div className="grid max-h-[68vh] grid-cols-1 gap-2.5 overflow-y-auto p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {SECTION_PRESETS.map((preset, i) => {
-          const Icon = sectionIcon(preset.type);
           const custom = preset.type === "custom";
           return (
             <button
@@ -54,7 +53,10 @@ export function AddContentDialog({
               }`}
             >
               <span className="flex items-center gap-2 text-[13.5px] font-semibold text-ink">
-                <Icon className="size-4 shrink-0 text-ink-faint transition-colors duration-150 group-hover:text-rose-500" />
+                <SectionIcon
+                  type={preset.type}
+                  className="size-4 shrink-0 text-ink-faint transition-colors duration-150 group-hover:text-rose-500"
+                />
                 <span dir="auto" className="min-w-0 truncate">
                   {sectionTitle(preset.type, locale)}
                 </span>

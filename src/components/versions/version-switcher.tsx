@@ -63,7 +63,9 @@ function SwitcherInner({ onClose }: { onClose: () => void }) {
       {
         id: resumeId,
         name: resumeName,
-        updatedAt: Date.now(),
+        // The newest version edit stands in for the resume's own timestamp,
+        // which the store does not carry; render has to stay pure.
+        updatedAt: Math.max(0, ...localVersions.map((v) => v.updatedAt)),
         versions: localVersions
           .filter((v) => !v.deletedAt)
           .map((v) => ({

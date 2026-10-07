@@ -8,6 +8,7 @@ import { enterDelay } from "@/lib/motion";
 import type { ResolvedTree } from "@/lib/resume/types";
 import { kindDefaults, useDesign, useResumeStore } from "@/store/resume-store";
 import { AddContentDialog } from "./add-content-dialog";
+import { ContactList, PhotoField } from "./contact-list";
 import { ProvenanceField } from "./provenance-field";
 import { SectionCard } from "./section-card";
 import { useDragReorder } from "./use-drag-reorder";
@@ -93,6 +94,15 @@ function PersonalDetailsCard({ tree }: { tree: ResolvedTree }) {
               placeholder={t.content.summaryPlaceholder}
             />
           </div>
+          <div className="mt-5 border-t border-hairline pt-4">
+            <ContactList header={header} />
+          </div>
+          <div className="mt-5 border-t border-hairline pt-4">
+            <p className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-ink-faint">
+              {t.content.photo}
+            </p>
+            <PhotoField header={header} />
+          </div>
         </div>
       )}
     </section>
@@ -118,11 +128,14 @@ export function EditorPanels({ tree }: { tree: ResolvedTree }) {
 
   return (
     <div className="space-y-3.5 pb-24">
-      <div className="anim-rise" style={enterDelay(0)}>
+      {/* Each card's entrance animation gives it its own stacking context, so
+          a menu opened near a card's bottom edge would slide under the next
+          card. Whichever card holds an open menu is lifted above the rest. */}
+      <div className="anim-rise relative has-[[role=menu]]:z-10" style={enterDelay(0)}>
         <PersonalDetailsCard tree={tree} />
       </div>
       {sections.map((section, i) => (
-        <div key={section.id} className="anim-rise" style={enterDelay(i + 1)}>
+        <div key={section.id} className="anim-rise relative has-[[role=menu]]:z-10" style={enterDelay(i + 1)}>
           <SectionCard
             node={section}
             dragProps={drag.itemProps(section.id, i)}

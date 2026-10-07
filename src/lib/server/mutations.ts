@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, tables } from "@/db";
 import { requireUser } from "@/lib/auth/dal";
+import { NODE_KINDS } from "@/lib/resume/types";
 
 const { collections, edits, nodes, resumes, versions } = tables;
 
@@ -50,11 +51,56 @@ export function getNodeOrThrow(nodeId: string) {
   return n;
 }
 
+/**
+ * A version of *this* resume, or an error.
+ *
+ * Ownership is checked once per action, on the resume id; every other id the
+ * client sends (versions, nodes, parents) must then be shown to belong to that
+ * same resume. Without this, a signed-in user could pass their own resume id
+ * alongside someone else's version or node id and edit it.
+ */
+export function versionOf(resumeId: string, versionId: string) {
+  const v = getVersionOrThrow(versionId);
+  if (v.resumeId !== resumeId) throw new Error(`Version not found: ${versionId}`);
+  return v;
+}
+
+/** A node of *this* resume, or an error — see `versionOf`. */
+export function nodeOf(resumeId: string, nodeId: string) {
+  const n = getNodeOrThrow(nodeId);
+  if (n.resumeId !== resumeId) throw new Error(`Node not found: ${nodeId}`);
+  return n;
+}
+
+/**
+ * Validates nodes a client wants to insert: a known kind, and a parent that
+ * is either one of the resume's nodes or another node in the same batch.
+ */
+export function assertInsertableNodes(
+  resumeId: string,
+  batch: { id: string; parentId: string | null; kind: string }[],
+) {
+  const inBatch = new Set(batch.map((n) => n.id));
+  for (const n of batch) {
+    if (!(NODE_KINDS as readonly string[]).includes(n.kind)) throw new Error(`Unknown node kind: ${n.kind}`);
+    if (n.parentId && !inBatch.has(n.parentId)) nodeOf(resumeId, n.parentId);
+  }
+}
+
 export function touchResume(resumeId: string) {
   db.update(resumes)
     .set({ updatedAt: Date.now() })
     .where(eq(resumes.id, resumeId))
     .run();
+}
+
+/** Longest value the audit log keeps verbatim; a photo is ~40 KB of base64. */
+const LOG_VALUE_MAX = 2000;
+
+function logValue(value: unknown): string | null {
+  if (value === undefined) return null;
+  const json = JSON.stringify(value);
+  return json.length > LOG_VALUE_MAX ? `${json.slice(0, LOG_VALUE_MAX)}…[${json.length} chars]` : json;
 }
 
 /** Append to the bounded edit log (undo/audit trail). */
@@ -73,8 +119,8 @@ export function logEdit(entry: {
       versionId: entry.versionId,
       nodeId: entry.nodeId,
       path: entry.path,
-      before: entry.before === undefined ? null : JSON.stringify(entry.before),
-      after: entry.after === undefined ? null : JSON.stringify(entry.after),
+      before: logValue(entry.before),
+      after: logValue(entry.after),
     })
     .run();
   // Keep the log bounded per resume.

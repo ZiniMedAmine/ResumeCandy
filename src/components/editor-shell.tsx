@@ -9,6 +9,7 @@ import {
   type ConfirmOptions,
   type EditorUI,
 } from "@/components/editor/editor-ui-context";
+import { AtsPanel } from "@/components/ats/ats-panel";
 import { ResumePreview } from "@/components/preview/resume-preview";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import {
@@ -19,15 +20,19 @@ import {
   DownloadIcon,
   FileIcon,
   LayersIcon,
+  LinkIcon,
   PaletteIcon,
   PlusIcon,
+  ShieldCheckIcon,
 } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ToastHost } from "@/components/ui/toast-host";
+import { analyzeResume } from "@/lib/ats";
 import { useI18n, useT } from "@/lib/i18n/provider";
 import { downloadResumePdf } from "@/lib/pdf/resume-pdf";
 import { CopyCustomizationsDialog, CopyFieldDialog } from "@/components/versions/copy-dialog";
 import { CustomizationsPanel } from "@/components/versions/customizations-panel";
+import { JobLinkCount, JobPanel } from "@/components/versions/job-panel";
 import { NewVersionDialog } from "@/components/versions/new-version-dialog";
 import { VersionManager } from "@/components/versions/version-manager";
 import { VersionSwitcher } from "@/components/versions/version-switcher";
@@ -56,7 +61,7 @@ function SaveIndicator() {
       ) : (
         <CloudCheckIcon key="saved" className="anim-pop size-4 text-emerald-500/70" />
       )}
-      <span className="hidden xl:inline">{saving ? t.editor.saving : t.editor.saved}</span>
+      <span className="hidden 2xl:inline">{saving ? t.editor.saving : t.editor.saved}</span>
     </span>
   );
 }
@@ -79,7 +84,7 @@ function TabSwitch() {
 
   return (
     <nav
-      className="absolute left-1/2 grid -translate-x-1/2 grid-cols-2 rounded-xl bg-sunken p-1"
+      className="relative grid grid-cols-2 rounded-xl bg-sunken p-1"
       role="tablist"
     >
       {/* Equal columns are what let the pill travel exactly 100% of itself.
@@ -139,7 +144,16 @@ function IconButton({
   );
 }
 
-function TopBar({ ui }: { ui: EditorUI }) {
+type SidePanel = "customizations" | "ats" | "job" | null;
+
+/** Score chip colour, matching the ring in the ATS panel. */
+function scoreClass(score: number) {
+  if (score >= 85) return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300";
+  if (score >= 65) return "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300";
+  return "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300";
+}
+
+function TopBar({ ui, panel }: { ui: EditorUI; panel: SidePanel }) {
   const resumeName = useResumeStore((s) => s.resumeName);
   const versions = useResumeStore((s) => s.versions);
   const activeVersionId = useResumeStore((s) => s.activeVersionId);
@@ -151,6 +165,8 @@ function TopBar({ ui }: { ui: EditorUI }) {
   const toast = useResumeStore((s) => s.toast);
   const { t, fmt } = useI18n();
   const [downloading, setDownloading] = useState(false);
+  const atsScore = useMemo(() => analyzeResume(renderTree.roots, design).score, [renderTree, design]);
+  const linkCount = activeVersion?.links?.length ?? 0;
 
   const download = async () => {
     if (!activeVersion || downloading) return;
@@ -173,69 +189,111 @@ function TopBar({ ui }: { ui: EditorUI }) {
   };
 
   return (
-    <header className="relative z-20 flex h-14 shrink-0 items-center gap-2 border-b border-hairline bg-surface px-4">
-      <Link
-        href="/"
-        className="pressable flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink"
-      >
-        <ArrowLeftIcon className="size-4 shrink-0 text-ink-faint rtl:-scale-x-100" />
-        <span className="max-w-40 truncate">{resumeName}</span>
-      </Link>
+    // Three columns rather than an absolutely centred switch: the tabs sit in
+    // the middle while there is room, and get pushed aside — never covered —
+    // when a long version name or the customization chip needs the space.
+    <header className="relative z-20 grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-hairline bg-surface px-4">
+      <div className="flex items-center gap-2 whitespace-nowrap">
+        <Link
+          href="/"
+          className="pressable flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink"
+        >
+          <ArrowLeftIcon className="size-4 shrink-0 text-ink-faint rtl:-scale-x-100" />
+          <span className="max-w-40 truncate">{resumeName}</span>
+        </Link>
+
+        {/* The application context of this version: what it was sent to, and
+            how well an ATS will read it. Left of the tabs, where there is room. */}
+        <div className="mx-0.5 h-6 w-px bg-hairline" />
+        <button
+          type="button"
+          onClick={ui.toggleJob}
+          aria-pressed={panel === "job"}
+          title={fmt(t.editor.jobTitle, { name: activeVersion?.name ?? "" })}
+          className={`pressable flex items-center gap-1 rounded-lg px-2 py-2 text-[12.5px] font-medium transition-colors duration-150 hover:bg-sunken hover:text-ink ${
+            panel === "job" ? "bg-sunken text-ink" : "text-ink-muted"
+          }`}
+        >
+          <LinkIcon className="size-4 text-ink-faint" />
+          <span className="hidden xl:inline">{t.editor.job}</span>
+          <JobLinkCount count={linkCount} />
+        </button>
+
+        <button
+          type="button"
+          onClick={ui.toggleAts}
+          aria-pressed={panel === "ats"}
+          title={fmt(t.editor.atsTitle, { score: atsScore })}
+          className={`pressable flex items-center gap-1.5 rounded-lg px-2 py-2 text-[12.5px] font-medium transition-colors duration-150 hover:bg-sunken hover:text-ink ${
+            panel === "ats" ? "bg-sunken text-ink" : "text-ink-muted"
+          }`}
+        >
+          <ShieldCheckIcon className="size-4 text-ink-faint" />
+          <span className="hidden xl:inline">{t.editor.ats}</span>
+          <span className={`rounded-full px-1.5 text-[10.5px] font-semibold tabular-nums ${scoreClass(atsScore)}`}>
+            {atsScore}
+          </span>
+        </button>
+      </div>
 
       <TabSwitch />
 
-      <div className="flex-1" />
+      <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+        <SaveIndicator />
 
-      <SaveIndicator />
+        {!isBase && count > 0 && (
+          <button
+            type="button"
+            onClick={ui.openCustomizations}
+            className="pressable hidden rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors duration-150 hover:bg-amber-100 md:block dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+            title={`${fmt(t.editor.customizationCount, { n: count })} — ${t.editor.seeDifferences}`}
+          >
+            <span className="hidden 2xl:inline">{fmt(t.editor.customizationCount, { n: count })}</span>
+            <span className="flex items-center gap-1 2xl:hidden">
+              <span className="size-1.5 rounded-full bg-amber-400" />
+              {count}
+            </span>
+          </button>
+        )}
 
-      {!isBase && count > 0 && (
         <button
           type="button"
-          onClick={ui.openCustomizations}
-          className="pressable hidden rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors duration-150 hover:bg-amber-100 md:block dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
-          title={t.editor.seeDifferences}
+          onClick={ui.openSwitcher}
+          className="pressable ms-1 flex items-center gap-2 rounded-lg border border-hairline bg-surface py-1.5 ps-2.5 pe-2 text-[13px] font-medium text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong"
+          title={t.editor.switchVersion}
         >
-          {fmt(t.editor.customizationCount, { n: count })}
+          <span className={`size-1.5 rounded-full ${isBase ? "bg-ink-faint" : "bg-rose-500"}`} />
+          <span className="max-w-36 truncate">{activeVersion?.name}</span>
+          <ChevronDownIcon className="size-3.5 text-ink-faint" />
         </button>
-      )}
 
-      <button
-        type="button"
-        onClick={ui.openSwitcher}
-        className="pressable ms-1 flex items-center gap-2 rounded-lg border border-hairline bg-surface py-1.5 ps-2.5 pe-2 text-[13px] font-medium text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong"
-        title={t.editor.switchVersion}
-      >
-        <span className={`size-1.5 rounded-full ${isBase ? "bg-ink-faint" : "bg-rose-500"}`} />
-        <span className="max-w-36 truncate">{activeVersion?.name}</span>
-        <ChevronDownIcon className="size-3.5 text-ink-faint" />
-      </button>
+        <div className="mx-0.5 h-6 w-px bg-hairline" />
 
-      <div className="mx-0.5 h-6 w-px bg-hairline" />
+        <IconButton onClick={ui.openManager} title={t.editor.manageVersions}>
+          <LayersIcon />
+        </IconButton>
+        <ThemeToggle />
 
-      <IconButton onClick={ui.openManager} title={t.editor.manageVersions}>
-        <LayersIcon />
-      </IconButton>
-      <ThemeToggle />
+        <button
+          type="button"
+          onClick={download}
+          disabled={downloading}
+          className="pressable ms-1 flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 py-2 text-[12.5px] font-semibold text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong disabled:opacity-60"
+          title={fmt(t.editor.downloadAsPdf, { name: activeVersion?.name ?? "" })}
+        >
+          <DownloadIcon className="size-3.5 text-ink-faint" />
+          {downloading ? t.editor.preparingPdf : t.editor.download}
+        </button>
 
-      <button
-        type="button"
-        onClick={download}
-        disabled={downloading}
-        className="pressable ms-1 flex items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 py-2 text-[12.5px] font-semibold text-ink shadow-card transition-colors duration-150 hover:border-hairline-strong disabled:opacity-60"
-        title={fmt(t.editor.downloadAsPdf, { name: activeVersion?.name ?? "" })}
-      >
-        <DownloadIcon className="size-3.5 text-ink-faint" />
-        {downloading ? t.editor.preparingPdf : t.editor.download}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => ui.openNewVersion(null)}
-        className="pressable flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-orange-400 px-3.5 py-2 text-[12.5px] font-semibold text-white shadow-card transition-all duration-150 hover:shadow-card-hover hover:brightness-[1.03]"
-      >
-        <PlusIcon className="size-3.5" />
-        {t.editor.newVersion}
-      </button>
+        <button
+          type="button"
+          onClick={() => ui.openNewVersion(null)}
+          className="pressable flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-orange-400 px-3.5 py-2 text-[12.5px] font-semibold text-white shadow-card transition-all duration-150 hover:shadow-card-hover hover:brightness-[1.03]"
+        >
+          <PlusIcon className="size-3.5" />
+          {t.editor.newVersion}
+        </button>
+      </div>
     </header>
   );
 }
@@ -245,7 +303,7 @@ export function EditorShell() {
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
-  const [customizationsOpen, setCustomizationsOpen] = useState(false);
+  const [panel, setPanel] = useState<SidePanel>(null);
   const [newVersion, setNewVersion] = useState<{ open: boolean; from: string | null }>({ open: false, from: null });
   const [copyCustomizations, setCopyCustomizations] = useState<{ open: boolean; preselect: string[] | null }>({
     open: false,
@@ -259,7 +317,9 @@ export function EditorShell() {
       confirm: (opts) => setConfirmState(opts),
       openCopyField: (nodeId, field, value) => setCopyField({ nodeId, field, value }),
       openCopyCustomizations: (preselect) => setCopyCustomizations({ open: true, preselect: preselect ?? null }),
-      openCustomizations: () => setCustomizationsOpen(true),
+      openCustomizations: () => setPanel("customizations"),
+      toggleAts: () => setPanel((p) => (p === "ats" ? null : "ats")),
+      toggleJob: () => setPanel((p) => (p === "job" ? null : "job")),
       openSwitcher: () => setSwitcherOpen(true),
       openManager: () => setManagerOpen(true),
       openNewVersion: (from) => setNewVersion({ open: true, from: from ?? null }),
@@ -282,10 +342,12 @@ export function EditorShell() {
   return (
     <EditorUIContext.Provider value={ui}>
       <div className="flex h-dvh flex-col bg-canvas">
-        <TopBar ui={ui} />
+        <TopBar ui={ui} panel={panel} />
         <div className="flex min-h-0 flex-1">
           <MainAndPreview tab={tab} />
-          {customizationsOpen && <CustomizationsPanel open onClose={() => setCustomizationsOpen(false)} />}
+          {panel === "customizations" && <CustomizationsPanel open onClose={() => setPanel(null)} />}
+          {panel === "ats" && <AtsPanel onClose={() => setPanel(null)} onOpenJob={() => setPanel("job")} />}
+          {panel === "job" && <JobPanel onClose={() => setPanel(null)} />}
         </div>
       </div>
 

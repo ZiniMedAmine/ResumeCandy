@@ -45,7 +45,10 @@ export function sampleResumeRoots(): ResolvedNode[] {
       website: "alexmorgan.design",
       summary:
         "Product designer with eight years shaping data-heavy tools for technical teams, from first sketch through shipped release.",
-    }),
+    }, [
+      node("contact", { type: "linkedin", value: "linkedin.com/in/alexmorgan", label: "" }),
+      node("contact", { type: "behance", value: "behance.net/alexmorgan", label: "" }),
+    ]),
     section("Work Experience", "experience", [
       node(
         "experience",

@@ -31,7 +31,22 @@ export interface LocaleDef {
   rangeSeparator: string;
   /** Default heading a newly added section of each type gets. */
   sectionTitles: Record<SectionType, string>;
+  /**
+   * Printed names of the header's generic links and personal details. Network
+   * names (LinkedIn, GitHub…) are brands and live in `contacts.ts` instead.
+   */
+  contactLabels: Record<ContactLabelKey, string>;
 }
+
+export type ContactLabelKey =
+  | "portfolio"
+  | "blog"
+  | "link"
+  | "nationality"
+  | "birthDate"
+  | "drivingLicense"
+  | "workPermit"
+  | "availability";
 
 /**
  * Arabic months use the international Gregorian names (يناير, فبراير …) rather
@@ -75,6 +90,16 @@ export const LOCALES: Record<LocaleId, LocaleDef> = {
       declaration: "Declaration",
       custom: "Custom Section",
     },
+    contactLabels: {
+      portfolio: "Portfolio",
+      blog: "Blog",
+      link: "Website",
+      nationality: "Nationality",
+      birthDate: "Date of birth",
+      drivingLicense: "Driving licence",
+      workPermit: "Work authorization",
+      availability: "Availability",
+    },
   },
   fr: {
     id: "fr",
@@ -103,6 +128,16 @@ export const LOCALES: Record<LocaleId, LocaleDef> = {
       declaration: "Déclaration",
       custom: "Section Personnalisée",
     },
+    contactLabels: {
+      portfolio: "Portfolio",
+      blog: "Blog",
+      link: "Site web",
+      nationality: "Nationalité",
+      birthDate: "Date de naissance",
+      drivingLicense: "Permis de conduire",
+      workPermit: "Autorisation de travail",
+      availability: "Disponibilité",
+    },
   },
   ar: {
     id: "ar",
@@ -127,6 +162,16 @@ export const LOCALES: Record<LocaleId, LocaleDef> = {
       references: "المراجع",
       declaration: "إقرار",
       custom: "قسم مخصص",
+    },
+    contactLabels: {
+      portfolio: "معرض الأعمال",
+      blog: "المدونة",
+      link: "الموقع",
+      nationality: "الجنسية",
+      birthDate: "تاريخ الميلاد",
+      drivingLicense: "رخصة القيادة",
+      workPermit: "تصريح العمل",
+      availability: "التوفر",
     },
   },
 };
@@ -240,6 +285,18 @@ export function isDefaultHeading(title: string, type: SectionType | string | und
   const normalized = normalizeHeading(title);
   if (!normalized) return true;
   return defaultHeadingsFor(type).has(normalized);
+}
+
+/**
+ * True when a heading is one an ATS will recognise — any section type's
+ * default or common alias, in any of the CV languages. Parsers bucket content
+ * by heading, so "Where I've Been" files a whole career under nothing.
+ */
+export function isStandardHeading(title: string): boolean {
+  const normalized = normalizeHeading(title);
+  if (!normalized) return false;
+  const types = Object.keys(LOCALES.en.sectionTitles) as SectionType[];
+  return types.some((type) => type !== "custom" && defaultHeadingsFor(type).has(normalized));
 }
 
 /* -------------------------------- numerals --------------------------------- */

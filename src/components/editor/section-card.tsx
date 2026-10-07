@@ -14,7 +14,7 @@ import {
   TrashIcon,
   UndoIcon,
 } from "@/components/ui/icons";
-import { sectionIcon } from "@/components/ui/section-icons";
+import { SectionIcon } from "@/components/ui/section-icons";
 import { useI18n } from "@/lib/i18n/provider";
 import { sectionPreset } from "@/lib/sections";
 import { isHiddenFlag, type ResolvedNode, type SectionType } from "@/lib/resume/types";
@@ -66,7 +66,6 @@ export function SectionCard({
   const onBase = activeVersion?.isBase === 1 || activeVersion?.isBase === true;
   const sectionType = (node.data.sectionType as SectionType) ?? "experience";
   const preset = sectionPreset(sectionType);
-  const Icon = sectionIcon(sectionType);
 
   if (node.hidden) return <HiddenGhost node={node} />;
 
@@ -117,7 +116,7 @@ export function SectionCard({
           <GripIcon className="size-4" />
         </span>
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sunken text-ink-muted">
-          <Icon className="size-4.5" />
+          <SectionIcon type={sectionType} className="size-4.5" />
         </span>
 
         {editingHeading ? (

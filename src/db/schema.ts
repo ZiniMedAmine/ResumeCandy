@@ -141,6 +141,14 @@ export const versions = sqliteTable(
     // sparse overrides.
     isBase: integer("is_base").notNull().default(0),
     tags: text("tags", { mode: "json" }).notNull().$type<string[]>().default([]),
+    // URLs attached to this version — the posting it was tailored for, where
+    // it was submitted… Application context, never printed on the CV.
+    links: text("links", { mode: "json" })
+      .notNull()
+      .$type<{ id: string; kind: string; label: string; url: string }[]>()
+      .default([]),
+    // The job description this version targets; the ATS keyword check reads it.
+    jobDescription: text("job_description"),
     settingsPatch: text("settings_patch", { mode: "json" }).$type<Record<
       string,
       unknown

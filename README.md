@@ -68,6 +68,55 @@ accent color (presets + custom hex), font family, font size, line height,
 section spacing, page margins. Each template carries a natural typeface until
 a font family is chosen explicitly.
 
+The header has its own controls: **layout** (Stacked · Split — name on one
+side, details in a column opposite · Banner — name block on an accent band),
+alignment, inline or stacked details, separator, name capitalization, and an
+optional **photo** (uploaded under Personal details, center-cropped and stored
+as a ~30 KB JPEG on the header node, so it layers per version) in three
+shapes and any size. Entries add a **bullet style** (dot · dash · square ·
+arrow, drawn as shapes so no stray glyph lands in the text layer) and a
+**skills display** (inline · chips · list).
+
+## Links
+
+**Profile links & personal details.** Under Personal details, add LinkedIn,
+GitHub, GitLab, Behance, Dribbble, Stack Overflow, Kaggle, ORCID, Google
+Scholar, Medium, YouTube, X and ~20 more, a portfolio or any other link, plus
+plain details (nationality, date of birth, driving licence, work
+authorization, availability). Paste any profile URL and its network is
+recognised; type a bare handle and it is expanded to the profile URL. Each
+item is a `contact` node under the header (`src/lib/contacts.ts` is the
+catalogue), so the layering rules apply unchanged: a version can hide,
+reorder or rewrite a link, and a link added on a named version exists only
+there ("Only here").
+
+**Entry links.** Experience (company website), education (school website),
+certifications (credential URL) and projects carry a URL; the company, school
+or title becomes a link on the paper.
+
+**How links print** (Customize → Link Styling): *Full URL* prints the address
+itself (`linkedin.com/in/ada`) — the ATS-safe default, since parsers read the
+text layer and ignore hidden link targets — or *Name only* (`LinkedIn`). Either
+way every link is clickable in the PDF.
+
+**Job & links (per version).** Each version can carry the URLs of the
+application it was made for — job posting, application portal, company,
+recruiter — and the job description itself. This is version metadata
+(`versions.links`, `versions.job_description`), never printed, and a new
+version starts without it.
+
+## ATS check
+
+The top bar shows a 0–100 readiness score for the version on screen; the
+panel lists what to fix: missing contact details, missing or non-standard
+section headings (recognised in all three CV languages), undated roles, roles
+without bullets, overlong bullets, side columns, a photo, tiny body text,
+links printed as names only, and overall length. With a job description
+attached, it also extracts the posting's key terms (single words and recurring
+phrases such as "distributed systems", keeping tech spellings like `c++`,
+`c#`, `ci/cd`) and shows which this version mentions and which it misses.
+Everything lives in `src/lib/ats.ts` as pure functions with unit tests.
+
 ## Resume language (English · Français · العربية)
 
 The language a résumé is *written in* is one more design setting, so it layers
@@ -123,9 +172,14 @@ by unit tests rather than eyeballed.
 **Download** in the editor directly saves the version you're viewing as a PDF;
 it never opens the browser print dialog. The browser-only renderer writes the
 resolved content as real PDF text (not a canvas screenshot), embeds the
-template's fonts, and applies the active version's template, colors, typography,
-spacing, margins, and A4 / Letter / Legal page size. Text remains selectable and
-searchable for applicant tracking systems.
+template's fonts (and the name font, when one is chosen), and applies the
+active version's design: template, header layout and photo, one/two/mix
+columns with each column paging independently, heading style and case, entry
+structure and date position, bullet and skills styles, accent targets,
+typography, spacing, margins, footer and A4 / Letter / Legal page size. Every
+section type is exported, and every link — email, phone, profiles, entry
+URLs — is a real link annotation over printed text. Text remains selectable
+and searchable for applicant tracking systems.
 
 The dashboard card menu still uses `/print/[resumeId]/[versionId]` and the
 browser print dialog for its Default-version export.

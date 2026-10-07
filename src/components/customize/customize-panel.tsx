@@ -4,19 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import {
   ACCENT_PRESETS,
   ACCENT_TARGET_KEYS,
+  BULLET_STYLE_IDS,
   COLUMN_IDS,
   DATE_POSITION_IDS,
   ENTRY_STRUCTURE_IDS,
   HEADER_ALIGN_IDS,
   HEADER_DETAILS_IDS,
+  HEADER_LAYOUT_IDS,
   HEADER_SEPARATOR_IDS,
   HEADING_CASE_IDS,
   HEADING_ICON_IDS,
   HEADING_STYLE_IDS,
+  LINK_TEXT_IDS,
   LOCALE_OPTIONS,
+  NAME_CASE_IDS,
   PAGE_FORMATS,
   PAGE_FORMAT_IDS,
+  PHOTO_SHAPE_IDS,
   RANGES,
+  SKILL_STYLE_IDS,
   SUBTITLE_IDS,
   TEMPLATE_IDS,
   dateFormatOptions,
@@ -220,6 +226,43 @@ function HeadingPreview({ style }: { style: string }) {
     default:
       return <span className={base} />;
   }
+}
+
+/* ------------------------------ header preview ----------------------------- */
+
+/** A sketch of each header arrangement, for the picker. */
+function HeaderLayoutPreview({ layout }: { layout: DesignSettings["headerLayout"] }) {
+  const bar = "block h-[3px] rounded-full bg-current";
+  if (layout === "split") {
+    return (
+      <span className="flex w-full items-center justify-between gap-2">
+        <span className="flex flex-col gap-[3px]">
+          <span className={`${bar} w-9`} />
+          <span className={`${bar} w-6 opacity-60`} />
+        </span>
+        <span className="flex flex-col items-end gap-[3px]">
+          <span className={`${bar} w-6 opacity-50`} />
+          <span className={`${bar} w-5 opacity-50`} />
+          <span className={`${bar} w-6 opacity-50`} />
+        </span>
+      </span>
+    );
+  }
+  if (layout === "banner") {
+    return (
+      <span className="flex w-full flex-col items-center gap-[3px] rounded-[4px] bg-current px-2 py-1.5">
+        <span className="block h-[3px] w-9 rounded-full bg-white/90" />
+        <span className="block h-[2px] w-12 rounded-full bg-white/60" />
+      </span>
+    );
+  }
+  return (
+    <span className="flex w-full flex-col items-center gap-[3px]">
+      <span className={`${bar} w-9`} />
+      <span className={`${bar} w-6 opacity-60`} />
+      <span className={`${bar} w-12 opacity-40`} />
+    </span>
+  );
 }
 
 /* ------------------------------ section layout ----------------------------- */
@@ -639,6 +682,22 @@ export function CustomizePanel() {
                 onChange={(v) => set("subtitlePlacement", v)}
               />
             </div>
+            <div>
+              <RowLabel label={t.customize.bulletStyle} trailing={marker("bulletStyle")} />
+              <Segmented
+                options={optionsFor(BULLET_STYLE_IDS, t.design.bulletStyle)}
+                value={design.bulletStyle}
+                onChange={(v) => set("bulletStyle", v)}
+              />
+            </div>
+            <div>
+              <RowLabel label={t.customize.skillStyle} trailing={marker("skillStyle")} />
+              <Segmented
+                options={optionsFor(SKILL_STYLE_IDS, t.design.skillStyle)}
+                value={design.skillStyle}
+                onChange={(v) => set("skillStyle", v)}
+              />
+            </div>
           </div>
         </Group>
 
@@ -765,27 +824,53 @@ export function CustomizePanel() {
         <Group id="header" title={t.customize.group.header} icon={<UserIcon />} index={9}>
           <div className="space-y-5">
             <div>
-              <RowLabel label={t.customize.headerAlign} trailing={marker("headerAlign")} />
-              <Segmented
-                options={optionsFor(HEADER_ALIGN_IDS, t.design.headerAlign)}
-                value={design.headerAlign}
-                onChange={(v) => set("headerAlign", v)}
+              <RowLabel label={t.customize.headerLayout} trailing={marker("headerLayout")} />
+              <OptionCards
+                value={design.headerLayout}
+                onChange={(v) => set("headerLayout", v)}
+                options={optionsFor(HEADER_LAYOUT_IDS, t.design.headerLayout).map((o) => ({
+                  value: o.value,
+                  label: o.label,
+                  preview: <HeaderLayoutPreview layout={o.value} />,
+                }))}
               />
             </div>
-            <div>
-              <RowLabel label={t.customize.headerDetails} trailing={marker("headerDetails")} />
-              <Segmented
-                options={optionsFor(HEADER_DETAILS_IDS, t.design.headerDetails)}
-                value={design.headerDetails}
-                onChange={(v) => set("headerDetails", v)}
-              />
-            </div>
+            {/* Split always sets the name and the details apart, so alignment
+                and arrangement only mean something in the other two. */}
+            {design.headerLayout !== "split" && (
+              <>
+                <div>
+                  <RowLabel label={t.customize.headerAlign} trailing={marker("headerAlign")} />
+                  <Segmented
+                    options={optionsFor(HEADER_ALIGN_IDS, t.design.headerAlign)}
+                    value={design.headerAlign}
+                    onChange={(v) => set("headerAlign", v)}
+                  />
+                </div>
+                <div>
+                  <RowLabel label={t.customize.headerDetails} trailing={marker("headerDetails")} />
+                  <Segmented
+                    options={optionsFor(HEADER_DETAILS_IDS, t.design.headerDetails)}
+                    value={design.headerDetails}
+                    onChange={(v) => set("headerDetails", v)}
+                  />
+                </div>
+              </>
+            )}
             <div>
               <RowLabel label={t.customize.headerSeparator} trailing={marker("headerSeparator")} />
               <Segmented
                 options={optionsFor(HEADER_SEPARATOR_IDS, t.design.headerSeparator)}
                 value={design.headerSeparator}
                 onChange={(v) => set("headerSeparator", v)}
+              />
+            </div>
+            <div>
+              <RowLabel label={t.customize.nameCase} trailing={marker("nameCase")} />
+              <Segmented
+                options={optionsFor(NAME_CASE_IDS, t.design.nameCase)}
+                value={design.nameCase}
+                onChange={(v) => set("nameCase", v)}
               />
             </div>
             <Toggle
@@ -795,11 +880,39 @@ export function CustomizePanel() {
               onChange={(v) => set("showPhoto", v)}
               trailing={marker("showPhoto")}
             />
+            {design.showPhoto && (
+              <>
+                <div>
+                  <RowLabel label={t.customize.photoShape} trailing={marker("photoShape")} />
+                  <Segmented
+                    options={optionsFor(PHOTO_SHAPE_IDS, t.design.photoShape)}
+                    value={design.photoShape}
+                    onChange={(v) => set("photoShape", v)}
+                  />
+                </div>
+                <Stepper
+                  label={t.customize.photoSize}
+                  range={RANGES.photoSize}
+                  value={design.photoSize}
+                  onChange={(v) => set("photoSize", v)}
+                  trailing={marker("photoSize")}
+                />
+              </>
+            )}
           </div>
         </Group>
 
         {/* -------------------------------- links ------------------------------- */}
         <Group id="links" title={t.customize.group.links} icon={<LinkIcon />} index={10}>
+          <div className="mb-4">
+            <RowLabel label={t.customize.linkText} trailing={marker("linkText")} />
+            <Segmented
+              options={optionsFor(LINK_TEXT_IDS, t.design.linkText)}
+              value={design.linkText}
+              onChange={(v) => set("linkText", v)}
+            />
+            <p className="mt-2 text-[11.5px] leading-relaxed text-ink-faint">{t.customize.linkTextHint}</p>
+          </div>
           <div className="space-y-1">
             <Toggle
               label={t.customize.linkUnderline}

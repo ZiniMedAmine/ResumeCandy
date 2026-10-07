@@ -27,6 +27,7 @@ import {
   type ResumeNode,
   type SectionType,
   type Version,
+  type VersionLink,
 } from "@/lib/resume/types";
 import { editorUrl, parseView, type EditorTab } from "@/lib/view";
 
@@ -106,6 +107,9 @@ export interface ResumeStoreState {
   duplicateVersion(versionId: string): string;
   renameVersion(versionId: string, name: string): void;
   setVersionTags(versionId: string, tags: string[]): void;
+  /** URLs attached to a version (posting, portal…). Debounced while typing. */
+  setVersionLinks(versionId: string, links: VersionLink[]): void;
+  setJobDescription(versionId: string, text: string): void;
   archiveVersion(versionId: string, archived: boolean): void;
   trashVersion(versionId: string): void;
   restoreTrashed(versionId: string): void;
@@ -880,6 +884,9 @@ export function createResumeStore(
           name,
           isBase: 0,
           tags: from ? [...from.tags] : [],
+          // A new version is a new application: it starts with no posting.
+          links: [],
+          jobDescription: null,
           createdFromVersionId: from?.id ?? baseVersion().id,
           lastOpenedAt: Date.now(),
           archivedAt: null,
@@ -950,6 +957,27 @@ export function createResumeStore(
           versions: st.versions.map((v) => (v.id === versionId ? { ...v, tags, updatedAt: Date.now() } : v)),
         }));
         run(() => versionActions.setVersionTags({ resumeId: s.resumeId, versionId, tags }));
+      },
+
+      setVersionLinks(versionId, links) {
+        set((st) => ({
+          versions: st.versions.map((v) => (v.id === versionId ? { ...v, links, updatedAt: Date.now() } : v)),
+        }));
+        // Only complete http(s) URLs travel; a half-typed one stays local
+        // until it becomes one, rather than being rejected by the server.
+        const valid = links.filter((l) => !l.url || /^(https?:\/\/\S+|mailto:\S+)/i.test(l.url));
+        debounced(`links:${versionId}`, () => versionActions.setVersionLinks({ versionId, links: valid }));
+      },
+
+      setJobDescription(versionId, text) {
+        set((st) => ({
+          versions: st.versions.map((v) =>
+            v.id === versionId ? { ...v, jobDescription: text || null, updatedAt: Date.now() } : v,
+          ),
+        }));
+        debounced(`jd:${versionId}`, () =>
+          versionActions.setJobDescription({ versionId, text: text.trim() ? text : null }),
+        );
       },
 
       archiveVersion(versionId, archived) {
@@ -1088,9 +1116,9 @@ export function kindDefaults(kind: NodeKind): NodeData {
     case "section":
       return { title: "New section", sectionType: "experience" };
     case "experience":
-      return { company: "", title: "", location: "", startDate: "", endDate: "" };
+      return { company: "", title: "", location: "", startDate: "", endDate: "", url: "" };
     case "education":
-      return { school: "", degree: "", field: "", location: "", startDate: "", endDate: "" };
+      return { school: "", degree: "", field: "", location: "", startDate: "", endDate: "", url: "" };
     case "project":
       return { name: "", url: "", description: "" };
     case "skillGroup":
@@ -1100,13 +1128,15 @@ export function kindDefaults(kind: NodeKind): NodeData {
     case "bullet":
       return { text: "" };
     case "certification":
-      return { name: "", issuer: "", date: "" };
+      return { name: "", issuer: "", date: "", url: "" };
     case "reference":
       return { name: "", title: "", company: "", email: "", phone: "" };
     case "language":
       return { name: "", level: "" };
     case "text":
       return { text: "" };
+    case "contact":
+      return { type: "linkedin", value: "", label: "" };
   }
 }
 

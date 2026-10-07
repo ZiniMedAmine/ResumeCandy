@@ -16,6 +16,10 @@ export interface EditorUI {
   openCopyField(nodeId: string, field: string, value: unknown): void;
   openCopyCustomizations(preselectNodeIds?: string[]): void;
   openCustomizations(): void;
+  /** Toggles the ATS readiness panel. */
+  toggleAts(): void;
+  /** Toggles the version's Job & links panel. */
+  toggleJob(): void;
   openSwitcher(): void;
   openManager(): void;
   openNewVersion(fromVersionId?: string | null): void;

@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import type { SectionType } from "@/lib/resume/types";
 import {
   AwardIcon,
@@ -39,4 +40,20 @@ export const SECTION_ICONS: Record<SectionType, React.ComponentType<{ className?
 
 export function sectionIcon(type: SectionType | string | undefined) {
   return SECTION_ICONS[type as SectionType] ?? BriefcaseIcon;
+}
+
+/**
+ * Renders a section type's icon by name. Looking the component up and then
+ * writing `<Icon />` in the caller would create a component during render,
+ * which the React Compiler rejects; going through `createElement` here keeps
+ * the lookup out of the caller's render.
+ */
+export function SectionIcon({
+  type,
+  className,
+}: {
+  type: SectionType | string | undefined;
+  className?: string;
+}) {
+  return createElement(sectionIcon(type), { className });
 }

@@ -19,7 +19,26 @@ export type NodeKind =
   | "certification"
   | "reference"
   | "language"
-  | "text";
+  | "text"
+  /** A profile link or personal detail, child of the header (see `lib/contacts.ts`). */
+  | "contact";
+
+/** Every node kind, for validating what a client asks to insert. */
+export const NODE_KINDS: readonly NodeKind[] = [
+  "header",
+  "section",
+  "experience",
+  "education",
+  "project",
+  "skillGroup",
+  "skill",
+  "bullet",
+  "certification",
+  "reference",
+  "language",
+  "text",
+  "contact",
+];
 
 export interface HeaderData {
   fullName: string;
@@ -47,6 +66,16 @@ export type SectionType =
   | "publications"
   | "declaration"
   | "custom";
+
+export interface ContactData {
+  /** A `ContactType` id: "linkedin", "github", "nationality"… */
+  type: string;
+  /** The URL, handle or text. */
+  value: string;
+  /** Optional printed name overriding the network's own. */
+  label: string;
+  [key: string]: unknown;
+}
 
 export interface SectionData {
   title: string;
@@ -137,12 +166,30 @@ export interface NodeOverride {
   rank: string | null;
 }
 
+/**
+ * What a URL attached to a version *is* — the posting it targets, where it was
+ * submitted, the recruiter. These belong to the application, not the paper:
+ * they are never printed on the CV.
+ */
+export type VersionLinkKind = "posting" | "application" | "company" | "contact" | "other";
+
+export interface VersionLink {
+  id: string;
+  kind: VersionLinkKind;
+  label: string;
+  url: string;
+}
+
 export interface Version {
   id: string;
   resumeId: string;
   name: string;
   isBase: number | boolean;
   tags: string[];
+  /** URLs attached to this version (job posting, application portal…). */
+  links: VersionLink[];
+  /** The job description this version targets — drives the keyword check. */
+  jobDescription: string | null;
   createdFromVersionId: string | null;
   lastOpenedAt: number | null;
   archivedAt: number | null;
@@ -236,6 +283,8 @@ export function nodeLabel(kind: NodeKind, data: NodeData, labels: KindLabels): s
       const t = s("text");
       return t.length > 72 ? `${t.slice(0, 72)}…` : t || labels.text;
     }
+    case "contact":
+      return s("value") || s("label") || labels.contact;
   }
 }
 

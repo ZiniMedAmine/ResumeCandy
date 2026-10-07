@@ -4,12 +4,14 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, tables } from "@/db";
 import { listVersionTree, type VersionTreeResume } from "@/lib/data";
 import {
+  assertInsertableNodes,
   assertOwnsResume,
   assertOwnsVersion,
-  getVersionOrThrow,
+  nodeOf,
   touchResume,
+  versionOf,
 } from "@/lib/server/mutations";
-import type { NodeOverride } from "@/lib/resume/types";
+import type { NodeOverride, VersionLink, VersionLinkKind } from "@/lib/resume/types";
 
 const { nodeOverrides, nodes, versions } = tables;
 
@@ -35,6 +37,9 @@ export async function createVersion(input: {
   localNodes: { id: string; parentId: string | null; kind: string; rank: string; data: Record<string, unknown> }[];
 }) {
   await assertOwnsResume(input.resumeId);
+  if (input.fromVersionId) versionOf(input.resumeId, input.fromVersionId);
+  for (const o of input.overrides) nodeOf(input.resumeId, o.nodeId);
+  assertInsertableNodes(input.resumeId, input.localNodes);
   db.transaction((tx) => {
     tx.insert(versions)
       .values({
@@ -83,6 +88,7 @@ export async function createVersion(input: {
 
 export async function renameVersion(input: { resumeId: string; versionId: string; name: string }) {
   await assertOwnsResume(input.resumeId);
+  versionOf(input.resumeId, input.versionId);
   const name = input.name.trim();
   if (!name) throw new Error("Version name cannot be empty");
   db.update(versions)
@@ -95,11 +101,53 @@ export async function renameVersion(input: { resumeId: string; versionId: string
 
 export async function setVersionTags(input: { resumeId: string; versionId: string; tags: string[] }) {
   await assertOwnsResume(input.resumeId);
+  versionOf(input.resumeId, input.versionId);
   db.update(versions)
     .set({ tags: input.tags, updatedAt: Date.now() })
     .where(eq(versions.id, input.versionId))
     .run();
   touchResume(input.resumeId);
+  return { ok: true as const };
+}
+
+const LINK_KINDS: VersionLinkKind[] = ["posting", "application", "company", "contact", "other"];
+const MAX_LINKS = 25;
+const MAX_JOB_DESCRIPTION = 20_000;
+
+/**
+ * Replace the URLs attached to a version. Ownership is checked through the
+ * version itself, so a valid resume id cannot be paired with someone else's
+ * version. Only web (http/https) and email (mailto) links are accepted: these
+ * render as clickable links, and nothing else (javascript:…) ever should.
+ */
+export async function setVersionLinks(input: { versionId: string; links: VersionLink[] }) {
+  const resumeId = await assertOwnsVersion(input.versionId);
+  const links = input.links.slice(0, MAX_LINKS).map((l) => ({
+    id: String(l.id).slice(0, 40),
+    kind: LINK_KINDS.includes(l.kind) ? l.kind : "other",
+    label: String(l.label ?? "").trim().slice(0, 120),
+    url: String(l.url ?? "").trim().slice(0, 2048),
+  }));
+  for (const l of links) {
+    if (l.url && !/^(https?:\/\/|mailto:)/i.test(l.url)) throw new Error("Only web or email links can be attached");
+  }
+  db.update(versions)
+    .set({ links, updatedAt: Date.now() })
+    .where(eq(versions.id, input.versionId))
+    .run();
+  touchResume(resumeId);
+  return { ok: true as const };
+}
+
+/** The job description a version targets (null clears it). */
+export async function setJobDescription(input: { versionId: string; text: string | null }) {
+  const resumeId = await assertOwnsVersion(input.versionId);
+  const text = input.text?.slice(0, MAX_JOB_DESCRIPTION) || null;
+  db.update(versions)
+    .set({ jobDescription: text, updatedAt: Date.now() })
+    .where(eq(versions.id, input.versionId))
+    .run();
+  touchResume(resumeId);
   return { ok: true as const };
 }
 
@@ -110,7 +158,7 @@ export async function setVersionSettings(input: {
   patch: Record<string, unknown>;
 }) {
   await assertOwnsResume(input.resumeId);
-  const v = getVersionOrThrow(input.versionId);
+  const v = versionOf(input.resumeId, input.versionId);
   const merged = { ...(v.settingsPatch ?? {}), ...input.patch };
   for (const key of Object.keys(merged)) {
     if (merged[key] === null) delete merged[key];
@@ -125,7 +173,7 @@ export async function setVersionSettings(input: {
 
 export async function archiveVersion(input: { resumeId: string; versionId: string; archived: boolean }) {
   await assertOwnsResume(input.resumeId);
-  const v = getVersionOrThrow(input.versionId);
+  const v = versionOf(input.resumeId, input.versionId);
   if (v.isBase === 1 && input.archived) throw new Error("The Default version cannot be archived");
   db.update(versions)
     .set({ archivedAt: input.archived ? Date.now() : null, updatedAt: Date.now() })
@@ -138,7 +186,7 @@ export async function archiveVersion(input: { resumeId: string; versionId: strin
 /** Soft delete → Trash (30-day retention, purged on load). */
 export async function trashVersion(input: { resumeId: string; versionId: string; trashed: boolean }) {
   await assertOwnsResume(input.resumeId);
-  const v = getVersionOrThrow(input.versionId);
+  const v = versionOf(input.resumeId, input.versionId);
   if (v.isBase === 1 && input.trashed) throw new Error("The Default version cannot be deleted");
   db.update(versions)
     .set({ deletedAt: input.trashed ? Date.now() : null, updatedAt: Date.now() })
@@ -151,7 +199,7 @@ export async function trashVersion(input: { resumeId: string; versionId: string;
 /** Permanent delete: version row (overrides cascade) plus its local nodes. */
 export async function hardDeleteVersion(input: { resumeId: string; versionId: string }) {
   await assertOwnsResume(input.resumeId);
-  const v = getVersionOrThrow(input.versionId);
+  const v = versionOf(input.resumeId, input.versionId);
   if (v.isBase === 1) throw new Error("The Default version cannot be deleted");
   db.transaction((tx) => {
     tx.delete(nodes)
@@ -180,7 +228,11 @@ export async function bulkVersionOp(input: {
   op: "archive" | "unarchive" | "trash" | "restore";
 }) {
   await assertOwnsResume(input.resumeId);
-  const rows = db.select().from(versions).where(inArray(versions.id, input.versionIds)).all();
+  const rows = db
+    .select()
+    .from(versions)
+    .where(and(eq(versions.resumeId, input.resumeId), inArray(versions.id, input.versionIds)))
+    .all();
   const ids = rows.filter((r) => r.isBase !== 1).map((r) => r.id);
   if (ids.length === 0) return { ok: true as const };
   const patch =

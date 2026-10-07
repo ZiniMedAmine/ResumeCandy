@@ -6,7 +6,7 @@ import { requireUser } from "./auth/dal";
 import { resolveDesign, type DesignSettings } from "./design";
 import type { ResumeListItem, ResumePayload } from "./payload";
 import { resolveVersion } from "./resume/resolve";
-import type { NodeKind, ResolvedNode } from "./resume/types";
+import type { NodeKind, ResolvedNode, Version } from "./resume/types";
 
 const { collections, nodeOverrides, nodes, resumes, versions } = tables;
 
@@ -287,6 +287,8 @@ export async function loadResumePayload(resumeId: string): Promise<ResumePayload
       name: v.name,
       isBase: v.isBase,
       tags: v.tags ?? [],
+      links: (v.links ?? []) as Version["links"],
+      jobDescription: v.jobDescription ?? null,
       createdFromVersionId: v.createdFromVersionId,
       lastOpenedAt: v.lastOpenedAt,
       archivedAt: v.archivedAt,

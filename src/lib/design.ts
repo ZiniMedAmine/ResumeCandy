@@ -35,6 +35,23 @@ export type SubtitlePlacement = "sameLine" | "below";
 export type HeaderAlign = "left" | "center";
 export type HeaderDetails = "inline" | "stacked";
 export type HeaderSeparator = "icon" | "bullet" | "bar";
+/**
+ * The header's overall arrangement. `stacked` puts the details under the
+ * name; `split` sets the name on the reading-start side and the details in a
+ * column opposite it; `banner` prints the name block on an accent band.
+ * All three are plain text in reading order, so a parser reads name → title
+ * → contacts whichever one is picked.
+ */
+export type HeaderLayout = "stacked" | "split" | "banner";
+export type NameCase = "normal" | "uppercase";
+export type PhotoShape = "circle" | "rounded" | "square";
+
+export type BulletStyle = "dot" | "dash" | "square" | "arrow";
+/** How a skill group lists its skills. */
+export type SkillStyle = "inline" | "chips" | "list";
+
+/** Printed form of a link: the address itself (ATS-safe) or just its name. */
+export type LinkText = "url" | "name";
 
 export interface DesignSettings {
   /* -------------------------------- document ------------------------------- */
@@ -82,6 +99,9 @@ export interface DesignSettings {
   entryStructure: EntryStructure;
   datePosition: DatePosition;
   subtitlePlacement: SubtitlePlacement;
+  bulletStyle: BulletStyle;
+  /** Follows the template (Classic inline, Modern chips) until chosen. */
+  skillStyle: SkillStyle;
 
   /* -------------------------------- headings ------------------------------- */
   headingStyle: HeadingStyle;
@@ -97,14 +117,21 @@ export interface DesignSettings {
   accentHeadingLine: boolean;
   accentBullets: boolean;
   accentDates: boolean;
+  accentIcons: boolean;
 
   /* --------------------------------- header -------------------------------- */
+  headerLayout: HeaderLayout;
   headerAlign: HeaderAlign;
   headerDetails: HeaderDetails;
   headerSeparator: HeaderSeparator;
+  nameCase: NameCase;
   showPhoto: boolean;
+  photoShape: PhotoShape;
+  /** Photo edge length in px at the base font size. */
+  photoSize: number;
 
   /* ---------------------------------- links -------------------------------- */
+  linkText: LinkText;
   linkUnderline: boolean;
   linkAccent: boolean;
   linkIcon: boolean;
@@ -141,6 +168,8 @@ export const DESIGN_DEFAULTS: DesignSettings = {
   entryStructure: "columns",
   datePosition: "right",
   subtitlePlacement: "below",
+  bulletStyle: "dot",
+  skillStyle: "inline",
 
   headingStyle: "underline",
   headingCase: "uppercase",
@@ -153,12 +182,18 @@ export const DESIGN_DEFAULTS: DesignSettings = {
   accentHeadingLine: false,
   accentBullets: false,
   accentDates: false,
+  accentIcons: false,
 
+  headerLayout: "stacked",
   headerAlign: "center",
   headerDetails: "inline",
   headerSeparator: "icon",
+  nameCase: "normal",
   showPhoto: false,
+  photoShape: "circle",
+  photoSize: 72,
 
+  linkText: "url",
   linkUnderline: false,
   linkAccent: false,
   linkIcon: false,
@@ -367,6 +402,18 @@ export const HEADER_DETAILS_IDS: HeaderDetails[] = ["inline", "stacked"];
 
 export const HEADER_SEPARATOR_IDS: HeaderSeparator[] = ["icon", "bullet", "bar"];
 
+export const HEADER_LAYOUT_IDS: HeaderLayout[] = ["stacked", "split", "banner"];
+
+export const NAME_CASE_IDS: NameCase[] = ["normal", "uppercase"];
+
+export const PHOTO_SHAPE_IDS: PhotoShape[] = ["circle", "rounded", "square"];
+
+export const BULLET_STYLE_IDS: BulletStyle[] = ["dot", "dash", "square", "arrow"];
+
+export const SKILL_STYLE_IDS: SkillStyle[] = ["inline", "chips", "list"];
+
+export const LINK_TEXT_IDS: LinkText[] = ["url", "name"];
+
 export type AccentPresetId =
   | "maroon"
   | "charcoal"
@@ -402,7 +449,8 @@ export type AccentTargetKey =
   | "accentHeadings"
   | "accentHeadingLine"
   | "accentBullets"
-  | "accentDates";
+  | "accentDates"
+  | "accentIcons";
 
 /** Every accent-target toggle, so the panel can render them from one list. */
 export const ACCENT_TARGET_KEYS: AccentTargetKey[] = [
@@ -412,6 +460,7 @@ export const ACCENT_TARGET_KEYS: AccentTargetKey[] = [
   "accentHeadingLine",
   "accentBullets",
   "accentDates",
+  "accentIcons",
 ];
 
 /* ------------------------------ numeric ranges ----------------------------- */
@@ -438,6 +487,7 @@ export const RANGES = {
   marginX: { min: 12, max: 90, step: 2, format: px },
   marginY: { min: 12, max: 90, step: 2, format: px },
   sidebarWidth: { min: 0.25, max: 0.45, step: 0.01, format: (v: number) => `${Math.round(v * 100)}%` },
+  photoSize: { min: 48, max: 128, step: 4, format: px },
 } satisfies Record<string, StepperRange>;
 
 export function clampToRange(range: StepperRange, value: number): number {
@@ -475,6 +525,11 @@ export function resolveDesign(
   // font family explicitly (then their choice wins across templates).
   if (raw.fontFamily == null) {
     merged.fontFamily = merged.template === "modern" ? "sans" : "serif";
+  }
+  // Same idea for how skills are listed: Classic reads them as a sentence,
+  // Modern as chips, until a style is picked explicitly.
+  if (raw.skillStyle == null) {
+    merged.skillStyle = merged.template === "modern" ? "chips" : "inline";
   }
 
   // A Latin-only family cannot draw a single Arabic letter, so the pairing is

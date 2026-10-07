@@ -1,20 +1,20 @@
 "use client";
 
-import { fontStack } from "@/lib/design";
+import { urlHref } from "@/lib/contacts";
 import type { ResolvedNode } from "@/lib/resume/types";
 import { PagedPaper, blockProps, useBlockMargins } from "../paged-paper";
 import {
   BulletList,
-  ContactLine,
   DesignProvider,
   EntryHead,
-  HeaderPhoto,
   Marked,
+  PaperAnchor,
+  ResumeHeader,
   ResumeLink,
   SectionColumns,
   SectionHeading,
+  SkillGroupView,
   dateRange,
-  emFor,
   s,
   titleBlockId,
   useDesignSettings,
@@ -39,7 +39,7 @@ export function ModernTemplate({ tree, design, markCustomized }: TemplateProps) 
         design={design}
         footer={{ name: s(header?.data.fullName), email: s(header?.data.email) }}
       >
-        {header && <Header node={header} markCustomized={markCustomized} />}
+        {header && <ResumeHeader node={header} markCustomized={markCustomized} variant="modern" />}
         <SectionColumns
           sections={sections}
           renderSection={(node, { sidebar }) => (
@@ -48,54 +48,6 @@ export function ModernTemplate({ tree, design, markCustomized }: TemplateProps) 
         />
       </PagedPaper>
     </DesignProvider>
-  );
-}
-
-function Header({ node, markCustomized }: { node: ResolvedNode; markCustomized: boolean }) {
-  const design = useDesignSettings();
-  const d = node.data;
-  const center = design.headerAlign === "center";
-
-  return (
-    <Marked
-      node={node}
-      markCustomized={markCustomized}
-      blockId={node.id}
-      className={`mb-[var(--sec-gap)] ${center ? "text-center" : "text-start"}`}
-    >
-      <div className={`flex items-center gap-[1.2em] ${center ? "justify-center" : ""}`}>
-        <HeaderPhoto data={d} />
-        <div className="min-w-0">
-          <h1
-            className="font-extrabold leading-tight tracking-tight"
-            style={{
-              fontSize: emFor(design, design.nameSize),
-              fontFamily: design.nameFont ? fontStack(design.nameFont) : undefined,
-              color: design.accentName ? "var(--accent)" : "#18181b",
-            }}
-          >
-            {s(d.fullName) || "Your Name"}
-          </h1>
-          {s(d.headline) && (
-            <p
-              className="mt-[0.05em] font-semibold"
-              style={{
-                fontSize: emFor(design, design.titleSize),
-                color: design.accentSubtitle ? "var(--accent)" : "#3f3f46",
-              }}
-            >
-              {s(d.headline)}
-            </p>
-          )}
-          <ContactLine data={d} />
-        </div>
-      </div>
-      {s(d.summary) && <p dir="auto" className="mt-[0.7em] text-[0.95em] text-zinc-700">{s(d.summary)}</p>}
-      <div
-        className={`mt-[0.9em] h-[3px] w-[3.2em] rounded-full ${center ? "mx-auto" : ""}`}
-        style={{ background: "var(--accent)" }}
-      />
-    </Marked>
   );
 }
 
@@ -134,6 +86,7 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
           <EntryHead
             title={s(d.title) || "Role"}
             subtitle={s(d.company)}
+            subtitleHref={urlHref(d.url)}
             date={dateRange(d, design)}
             location={s(d.location)}
             paging={head}
@@ -148,6 +101,7 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
           <EntryHead
             title={[s(d.degree), s(d.field)].filter(Boolean).join(", ") || "Degree"}
             subtitle={s(d.school)}
+            subtitleHref={urlHref(d.url)}
             date={dateRange(d, design)}
             location={s(d.location)}
             paging={head}
@@ -159,8 +113,8 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
     case "project":
       return (
         <Marked node={node} markCustomized={markCustomized}>
-          <EntryHead title={s(d.name) || "Project"} date={dateRange(d, design)} paging={head} />
-          {s(d.url) && (
+          <EntryHead titleHref={urlHref(d.url)} title={s(d.name) || "Project"} date={dateRange(d, design)} paging={head} />
+          {s(d.url) && design.linkText === "url" && (
             <p className="text-[0.85em] text-zinc-500">
               <ResumeLink href={s(d.url)} />
             </p>
@@ -170,46 +124,26 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
         </Marked>
       );
 
-    case "skillGroup": {
-      const skills = node.children.filter((c) => c.kind === "skill" && s(c.data.name));
-      if (!s(d.name) && skills.length === 0) return null;
-      return (
-        <Marked node={node} markCustomized={markCustomized} blockId={node.id}>
-          {s(d.name) && <p className="mb-[0.35em] text-[0.85em] font-bold text-zinc-900">{s(d.name)}</p>}
-          <div className="flex flex-wrap gap-[0.35em]">
-            {skills.map((sk) => (
-              <Marked key={sk.id} node={sk} markCustomized={markCustomized} className="inline-block">
-                <span
-                  className="inline-block rounded-[0.35em] border px-[0.55em] py-[0.12em] text-[0.82em]"
-                  style={
-                    design.accentBullets
-                      ? {
-                          borderColor: "var(--accent)",
-                          color: "var(--accent)",
-                          background: "transparent",
-                        }
-                      : { borderColor: "#e4e4e7", background: "#fafafa", color: "#3f3f46" }
-                  }
-                >
-                  {s(sk.data.name)}
-                </span>
-              </Marked>
-            ))}
-          </div>
-        </Marked>
-      );
-    }
+    case "skillGroup":
+      return <SkillGroupView node={node} markCustomized={markCustomized} />;
 
     case "certification":
       return (
         <Marked node={node} markCustomized={markCustomized} blockId={node.id}>
-          <p className="text-[0.92em] font-bold leading-snug text-zinc-900">{s(d.name)}</p>
+          <p dir="auto" className="text-[0.92em] font-bold leading-snug text-zinc-900">
+            <PaperAnchor href={urlHref(d.url)}>{s(d.name)}</PaperAnchor>
+          </p>
           <p
             className="text-[0.82em]"
             style={{ color: design.accentDates ? "var(--accent)" : "#71717a" }}
           >
             {[s(d.issuer), dateRange({ startDate: d.date }, design)].filter(Boolean).join(" · ")}
           </p>
+          {s(d.url) && design.linkText === "url" && (
+            <p className="text-[0.8em] text-zinc-500">
+              <ResumeLink href={s(d.url)} />
+            </p>
+          )}
         </Marked>
       );
 

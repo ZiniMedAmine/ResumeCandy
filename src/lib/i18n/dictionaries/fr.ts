@@ -130,6 +130,10 @@ export const fr: Dictionary = {
   },
 
   editor: {
+    ats: "Analyse ATS",
+    atsTitle: "Compatibilité ATS : {score}/100",
+    job: "Offre & liens",
+    jobTitle: "Offre, liens et description pour {name}",
     content: "Contenu",
     customize: "Personnaliser",
     saving: "Enregistrement…",
@@ -149,6 +153,15 @@ export const fr: Dictionary = {
   },
 
   content: {
+    photo: "Photo",
+    uploadPhoto: "Ajouter une photo",
+    changePhoto: "Changer",
+    removePhoto: "Retirer la photo",
+    photoHint: "Imprimée quand « Afficher la photo » est activé (Personnaliser → En-tête). Recadrée en carré.",
+    linksTitle: "Liens & informations personnelles",
+    linksHint:
+      "LinkedIn, GitHub, Behance, portfolio, nationalité… Ajouté sur une version nommée, un élément reste propre à cette version.",
+    addLink: "Ajouter un lien ou une info",
     personalDetails: "Informations personnelles",
     personalDetailsHint: "Nom, contact, résumé",
     addContent: "Ajouter du contenu",
@@ -227,6 +240,7 @@ export const fr: Dictionary = {
   },
 
   kind: {
+    contact: "Lien ou info",
     header: "En-tête",
     section: "Rubrique",
     experience: "Expérience",
@@ -244,6 +258,10 @@ export const fr: Dictionary = {
   },
 
   field: {
+    photo: "Photo",
+    value: "Valeur",
+    label: "Libellé",
+    type: "Type",
     fullName: "Nom complet",
     headline: "Titre professionnel",
     email: "E-mail",
@@ -269,6 +287,9 @@ export const fr: Dictionary = {
   },
 
   fields: {
+    companyUrl: "Site de l’entreprise",
+    schoolUrl: "Site de l’établissement",
+    credentialUrl: "URL du certificat",
     projectName: "Nom du projet",
     groupName: "Nom du groupe",
     certification: "Certification",
@@ -283,6 +304,9 @@ export const fr: Dictionary = {
     hideSkill: "Masquer la compétence dans cette version",
     hiddenSkill: "Masquée dans cette version — cliquez pour afficher",
     placeholder: {
+      companyUrl: "acme.com",
+      schoolUrl: "universite.fr",
+      credentialUrl: "credly.com/badges/…",
       title: "Ingénieure senior",
       company: "Acme SARL",
       location: "Télétravail",
@@ -331,6 +355,15 @@ export const fr: Dictionary = {
   },
 
   customize: {
+    headerLayout: "Disposition",
+    nameCase: "Casse du nom",
+    photoShape: "Forme de la photo",
+    photoSize: "Taille de la photo",
+    bulletStyle: "Style des puces",
+    skillStyle: "Affichage des compétences",
+    linkText: "Afficher les liens comme",
+    linkTextHint:
+      "Les adresses complètes restent lisibles par les logiciels de recrutement (ATS), qui lisent le texte imprimé et ignorent les cibles de lien cachées.",
     rail: {
       document: "Document",
       templates: "Modèles",
@@ -410,7 +443,7 @@ export const fr: Dictionary = {
     headerDetails: "Disposition des coordonnées",
     headerSeparator: "Séparateur",
     showPhoto: "Afficher la photo",
-    showPhotoHint: "Un cercle provisoire en attendant l’envoi de photos",
+    showPhotoHint: "Ajoutez-la dans Informations personnelles. Les ATS ignorent les photos et les recruteurs anglo-saxons préfèrent souvent s’en passer.",
     linkUnderline: "Souligner",
     linkAccent: "Couleur d’accent",
     linkIcon: "Icône de lien",
@@ -422,6 +455,12 @@ export const fr: Dictionary = {
   },
 
   design: {
+    headerLayout: { stacked: "Empilé", split: "Scindé", banner: "Bandeau" },
+    nameCase: { normal: "Tel que saisi", uppercase: "MAJUSCULES" },
+    photoShape: { circle: "Cercle", rounded: "Arrondi", square: "Carré" },
+    bulletStyle: { dot: "• Point", dash: "– Tiret", square: "▪ Carré", arrow: "› Flèche" },
+    skillStyle: { inline: "En ligne", chips: "Étiquettes", list: "Liste" },
+    linkText: { url: "URL complète", name: "Nom seul" },
     template: {
       classic: {
         name: "Classique",
@@ -452,6 +491,7 @@ export const fr: Dictionary = {
     headerDetails: { inline: "En ligne", stacked: "Empilées" },
     headerSeparator: { icon: "Icône", bullet: "Puce", bar: "Barre" },
     accentTarget: {
+      accentIcons: "Icônes de contact",
       accentName: "Nom",
       accentSubtitle: "Entreprise / sous-titre",
       accentHeadings: "Titres de rubriques",
@@ -615,6 +655,7 @@ export const fr: Dictionary = {
   },
 
   toast: {
+    photoFailed: "Impossible de lire cette image. Essayez un JPG ou un PNG.",
     saveFailed: "Échec de l’enregistrement — votre dernière modification risque d’être perdue",
     customizedFor:
       "Personnalisé pour {name} — les autres versions gardent la version par défaut",
@@ -662,5 +703,171 @@ export const fr: Dictionary = {
     pdfStarted: "Téléchargement du PDF lancé",
     pdfFailed: "Impossible de créer le PDF. Veuillez réessayer.",
     languageChanged: "Langue de l’interface modifiée",
+  },
+
+  contacts: {
+    pastePlaceholder: "Collez l’URL d’un profil — LinkedIn, GitHub, Behance…",
+    group: { network: "Profils", web: "Sites web", detail: "Informations personnelles" },
+    type: {
+      portfolio: "Portfolio",
+      blog: "Blog",
+      link: "Autre lien",
+      nationality: "Nationalité",
+      birthDate: "Date de naissance",
+      drivingLicense: "Permis de conduire",
+      workPermit: "Autorisation de travail",
+      availability: "Disponibilité / préavis",
+      info: "Autre information",
+    },
+    changeType: "Changer le type",
+    labelPlaceholder: "Libellé (facultatif)",
+    infoLabelPlaceholder: "Libellé, ex. Visa",
+    open: "Ouvrir le lien",
+    empty: "Aucun lien pour l’instant — ajoutez LinkedIn, GitHub ou votre portfolio.",
+  },
+
+  ats: {
+    title: "Analyse ATS",
+    subtitle: "Comment les logiciels de recrutement liront {name}",
+    close: "Fermer l’analyse ATS",
+    great: "Prêt à envoyer",
+    good: "Presque prêt",
+    low: "À améliorer",
+    toImprove: "À améliorer",
+    passed: "Tout est bon",
+    words: plural({ one: "{n} mot", other: "{n} mots" }),
+    keywordsTitle: "Mots-clés de l’offre",
+    keywordsEmpty: "Collez la description du poste dans Offre & liens pour voir quels termes clés cette version mentionne.",
+    addJobDescription: "Ajouter la description du poste",
+    coverage: "{coverage} % des termes clés de l’offre apparaissent dans cette version",
+    found: "Présents",
+    missing: "Absents",
+    missingHint: "Intégrez les termes absents là où ils sont vrais — dans une puce, une compétence ou le résumé.",
+    checks: {
+      name: {
+        title: "Nom complet",
+        pass: "Votre nom est en haut, là où les ATS le cherchent.",
+        issue: "Ajoutez votre nom complet — sans lui, la candidature ne peut pas vous être rattachée.",
+      },
+      email: {
+        title: "E-mail",
+        pass: "Une adresse e-mail valide est indiquée.",
+        issue: "Ajoutez une adresse e-mail valide — c’est par là que les recruteurs répondent.",
+      },
+      phone: {
+        title: "Téléphone",
+        pass: "Un numéro de téléphone est indiqué.",
+        issue: "Ajoutez un numéro de téléphone — beaucoup d’ATS signalent les profils qui n’en ont pas.",
+      },
+      location: {
+        title: "Localisation",
+        pass: "Votre localisation est indiquée.",
+        issue: "Ajoutez une ville et un pays — c’est l’un des premiers filtres des recruteurs.",
+      },
+      profiles: {
+        title: "Liens de profil",
+        pass: "Au moins un lien de profil est indiqué.",
+        issue: "Ajoutez LinkedIn, GitHub ou un portfolio dans Informations personnelles.",
+      },
+      summary: {
+        title: "Résumé",
+        pass: "Un résumé présente votre profil.",
+        issue: "Ajoutez un résumé de 2 à 4 phrases (moins de ~900 caractères) — il est lu en premier.",
+      },
+      experience: {
+        title: "Section Expérience",
+        pass: "Une section Expérience est présente.",
+        issue: "Ajoutez une section Expérience — les ATS la repèrent par son type et son titre.",
+      },
+      education: {
+        title: "Section Formation",
+        pass: "Une section Formation est présente.",
+        issue: "Ajoutez une section Formation — de nombreux filtres l’exigent.",
+      },
+      skills: {
+        title: "Compétences",
+        pass: plural({ one: "{n} compétence listée pour les recherches par mot-clé.", other: "{n} compétences listées pour les recherches par mot-clé." }),
+        issue: "Ajoutez une section Compétences — les recherches par mot-clé s’appuient dessus.",
+      },
+      dates: {
+        title: "Dates",
+        pass: "Chaque poste et diplôme est daté.",
+        issue: plural({
+          one: "{n} entrée n’a pas de dates — les ATS en déduisent vos années d’expérience.",
+          other: "{n} entrées n’ont pas de dates — les ATS en déduisent vos années d’expérience.",
+        }),
+      },
+      bullets: {
+        title: "Réalisations",
+        pass: "Chaque poste comporte des puces.",
+        issue: plural({
+          one: "{n} poste n’a aucune puce — décrivez ce que vous avez fait et obtenu.",
+          other: "{n} postes n’ont aucune puce — décrivez ce que vous avez fait et obtenu.",
+        }),
+      },
+      bulletLength: {
+        title: "Longueur des puces",
+        pass: "Les puces sont concises.",
+        issue: plural({
+          one: "{n} puce dépasse {max} caractères — scindez-la.",
+          other: "{n} puces dépassent {max} caractères — scindez-les.",
+        }),
+      },
+      headings: {
+        title: "Titres de section",
+        pass: "Tous les titres sont standards : les ATS savent où classer chaque section.",
+        issue: "Titres non standards : {titles}. Les ATS risquent de ne pas savoir où les classer.",
+      },
+      columns: {
+        title: "Une seule colonne",
+        pass: "Le contenu suit une seule colonne — l’ordre de lecture le plus sûr.",
+        issue: "Les colonnes latérales peuvent être lues dans le désordre par d’anciens ATS. Préférez Une colonne (Personnaliser → Mise en page) pour les candidatures en ligne.",
+      },
+      photo: {
+        title: "Photo",
+        pass: "Pas de photo — les ATS ignorent de toute façon les images.",
+        issue: "Une photo est affichée. Les ATS l’ignorent et les recruteurs anglo-saxons préfèrent souvent un CV sans photo.",
+      },
+      fontSize: {
+        title: "Taille du texte",
+        pass: "Le texte est assez grand pour être lu de façon fiable.",
+        issue: "Le texte fait {size} px — passez à au moins 11 px.",
+      },
+      linkText: {
+        title: "Liens visibles",
+        pass: "Les adresses des liens sont imprimées en clair, lisibles par les ATS.",
+        issue: "Les liens n’affichent que leur nom : les ATS ne voient pas l’adresse cachée. Choisissez URL complète (Personnaliser → Style des liens).",
+      },
+      length: {
+        title: "Longueur",
+        pass: "{n} mots — une bonne longueur.",
+        issue: "{n} mots — visez entre {min} et {max}.",
+      },
+    },
+  },
+
+  jobs: {
+    title: "Offre & liens",
+    subtitle: "Rattachés à {name} uniquement — jamais imprimés sur le CV.",
+    close: "Fermer",
+    linksTitle: "Liens rattachés",
+    linksEmpty:
+      "Rattachez l’offre pour laquelle cette version a été adaptée, le portail de candidature ou le profil du recruteur — pour toujours savoir où ce CV est parti.",
+    addLink: "Rattacher un lien",
+    urlPlaceholder: "https://…",
+    labelPlaceholder: "Libellé (facultatif)",
+    open: "Ouvrir dans un nouvel onglet",
+    remove: "Retirer le lien",
+    kind: {
+      posting: "Offre d’emploi",
+      application: "Candidature",
+      company: "Entreprise",
+      contact: "Recruteur / contact",
+      other: "Autre",
+    },
+    linkCount: plural({ one: "{n} lien", other: "{n} liens" }),
+    descriptionTitle: "Description du poste",
+    descriptionHint: "Collez l’offre. L’analyse ATS compare ses termes clés avec cette version.",
+    descriptionPlaceholder: "Collez la description du poste ici…",
   },
 };

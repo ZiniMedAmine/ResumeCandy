@@ -235,12 +235,20 @@ export function EntryFields({ node }: { node: ResolvedNode }) {
       return (
         <div className="space-y-4">
           <ProvenanceField node={node} field="title" label={t.field.title} placeholder={ph.title} />
-          <ProvenanceField
-            node={node}
-            field="company"
-            label={t.field.company}
-            placeholder={ph.company}
-          />
+          <div className="grid grid-cols-2 gap-3.5">
+            <ProvenanceField
+              node={node}
+              field="company"
+              label={t.field.company}
+              placeholder={ph.company}
+            />
+            <ProvenanceField
+              node={node}
+              field="url"
+              label={t.fields.companyUrl}
+              placeholder={ph.companyUrl}
+            />
+          </div>
           <div className="grid grid-cols-3 gap-3.5">
             <DateField node={node} field="startDate" label={t.field.startDate} />
             <DateField node={node} field="endDate" label={t.field.endDate} allowPresent />
@@ -259,7 +267,15 @@ export function EntryFields({ node }: { node: ResolvedNode }) {
       return (
         <div className="space-y-4">
           <ProvenanceField node={node} field="degree" label={t.field.degree} placeholder={ph.degree} />
-          <ProvenanceField node={node} field="school" label={t.field.school} placeholder={ph.school} />
+          <div className="grid grid-cols-2 gap-3.5">
+            <ProvenanceField node={node} field="school" label={t.field.school} placeholder={ph.school} />
+            <ProvenanceField
+              node={node}
+              field="url"
+              label={t.fields.schoolUrl}
+              placeholder={ph.schoolUrl}
+            />
+          </div>
           <ProvenanceField node={node} field="field" label={t.field.field} placeholder={ph.field} />
           <div className="grid grid-cols-3 gap-3.5">
             <DateField node={node} field="startDate" label={t.field.startDate} />
@@ -332,6 +348,12 @@ export function EntryFields({ node }: { node: ResolvedNode }) {
             />
             <DateField node={node} field="date" label={t.field.date} />
           </div>
+          <ProvenanceField
+            node={node}
+            field="url"
+            label={t.fields.credentialUrl}
+            placeholder={ph.credentialUrl}
+          />
         </div>
       );
 

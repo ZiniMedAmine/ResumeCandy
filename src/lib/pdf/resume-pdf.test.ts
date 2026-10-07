@@ -188,3 +188,162 @@ describe("right-to-left export", () => {
     expect(ltr.some((p) => p.text.includes("Present"))).toBe(true);
   });
 });
+
+/* ------------------------- links, layouts, coverage ------------------------ */
+
+const fullRoots = () => [
+  node(
+    "header",
+    {
+      fullName: "Ada Lovelace",
+      headline: "Engineer",
+      email: "ada@example.com",
+      phone: "+44 20 0000",
+      summary: "Writes programs for engines.",
+    },
+    [
+      node("contact", { type: "linkedin", value: "linkedin.com/in/ada", label: "" }),
+      node("contact", { type: "github", value: "ada", label: "" }),
+      node("contact", { type: "nationality", value: "British", label: "" }),
+    ],
+  ),
+  node("section", { title: "Experience", sectionType: "experience" }, [
+    node("experience", { title: "Engineer", company: "Engines Ltd", url: "engines.example", startDate: "2020" }, [
+      node("bullet", { text: "Shipped the first program." }),
+    ]),
+  ]),
+  node("section", { title: "Languages", sectionType: "languages" }, [
+    node("language", { name: "French", level: "C1" }),
+  ]),
+  node("section", { title: "Declaration", sectionType: "declaration" }, [
+    node("text", { text: "I confirm the above is true." }),
+  ]),
+  node("section", { title: "Certificates", sectionType: "certifications" }, [
+    node("certification", { name: "CKA", issuer: "CNCF", date: "2023", url: "credly.com/badges/123" }),
+  ]),
+  node("section", { title: "Skills", sectionType: "skills" }, [
+    node("skillGroup", { name: "Languages" }, [node("skill", { name: "Go" }), node("skill", { name: "Rust" })]),
+  ]),
+];
+
+const renderWith = (design: Partial<typeof DESIGN_DEFAULTS>) =>
+  createResumePdf({
+    tree: { roots: fullRoots() },
+    design: { ...DESIGN_DEFAULTS, ...design },
+    resumeName: "CV",
+    versionName: "Default",
+    isBaseVersion: true,
+  });
+
+const allText = (pdf: Awaited<ReturnType<typeof createResumePdf>>) =>
+  Array.from({ length: pdf.getNumberOfPages() }, (_, i) =>
+    (pdf.internal.pages as unknown as string[][])[i + 1].join("\n"),
+  ).join("\n");
+
+const rawPdf = (pdf: Awaited<ReturnType<typeof createResumePdf>>) =>
+  Buffer.from(pdf.output("arraybuffer")).toString("latin1");
+
+describe("links and coverage", () => {
+  it("prints languages and free paragraphs, which used to be dropped", async () => {
+    const text = allText(await renderWith({}));
+    expect(text).toContain("French");
+    expect(text).toContain("C1");
+    expect(text).toContain("I confirm the above is true.");
+  });
+
+  it("prints profile links as readable addresses and makes them clickable", async () => {
+    const pdf = await renderWith({});
+    const text = allText(pdf);
+    expect(text).toContain("linkedin.com/in/ada");
+    // A bare handle is expanded into its profile URL.
+    expect(text).toContain("github.com/ada");
+    expect(text).toContain("Nationality: ");
+    const raw = rawPdf(pdf);
+    expect(raw).toContain("/URI (https://linkedin.com/in/ada)");
+    expect(raw).toContain("/URI (https://github.com/ada)");
+    expect(raw).toContain("/URI (mailto:ada@example.com)");
+    expect(raw).toContain("/URI (https://engines.example)");
+    expect(raw).toContain("/URI (https://credly.com/badges/123)");
+  });
+
+  it("prints names instead of addresses when asked, keeping the link", async () => {
+    const pdf = await renderWith({ linkText: "name" });
+    const text = allText(pdf);
+    expect(text).toContain("LinkedIn");
+    expect(text).not.toContain("linkedin.com/in/ada");
+    expect(rawPdf(pdf)).toContain("/URI (https://linkedin.com/in/ada)");
+  });
+
+  it.each(["stacked", "split", "banner"] as const)("renders the %s header", async (headerLayout) => {
+    const text = allText(await renderWith({ headerLayout }));
+    expect(text).toContain("Ada Lovelace");
+    expect(text).toContain("ada@example.com");
+  });
+
+  it.each(["inline", "chips", "list"] as const)("writes %s skills as text", async (skillStyle) => {
+    const text = allText(await renderWith({ skillStyle }));
+    expect(text).toContain("Go");
+    expect(text).toContain("Rust");
+  });
+
+  it("splits sections into two flows when a sidebar is in use", async () => {
+    const pdf = await renderWith({ columns: "two" });
+    const runs = placements(pdf);
+    const main = runs.find((p) => p.text === "EXPERIENCE")!.x;
+    const side = runs.find((p) => p.text === "SKILLS")!.x;
+    expect(side).toBeGreaterThan(main + 200);
+  });
+
+  it("prints a footer with page numbers on every page", async () => {
+    const text = allText(await renderWith({ footerPageNumbers: true }));
+    expect(text).toContain("1 / 1");
+  });
+});
+
+describe("regressions", () => {
+  const PNG =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  it.each(["circle", "rounded", "square"] as const)("embeds a %s photo", async (photoShape) => {
+    const roots = fullRoots();
+    roots[0] = { ...roots[0], data: { ...roots[0].data, photo: PNG } };
+    const pdf = await createResumePdf({
+      tree: { roots },
+      design: { ...DESIGN_DEFAULTS, showPhoto: true, photoShape },
+      resumeName: "CV",
+      versionName: "Default",
+      isBaseVersion: true,
+    });
+    const page = allText(pdf);
+    expect(page).toContain("/I");
+    // Round shapes clip the image; a square one has nothing to clip.
+    if (photoShape === "square") expect(page).not.toMatch(/\nW\nn\n/);
+    else expect(page).toMatch(/\nW\nn\n/);
+  });
+
+  it("links the subtitle, not the title, on a same-line split head", async () => {
+    const pdf = await renderWith({ datePosition: "split", subtitlePlacement: "sameLine" });
+    const raw = rawPdf(pdf);
+    expect(raw).toContain("/URI (https://engines.example)");
+    expect(allText(pdf)).toContain("Engines Ltd");
+  });
+
+  it("keeps every skill when a skill line wraps", async () => {
+    const many = Array.from({ length: 40 }, (_, i) => `Skill${i}`);
+    const roots = [
+      node("section", { title: "Skills", sectionType: "skills" }, [
+        node("skillGroup", { name: "Tools" }, many.map((name) => node("skill", { name }))),
+      ]),
+    ];
+    const pdf = await createResumePdf({
+      tree: { roots },
+      design: DESIGN_DEFAULTS,
+      resumeName: "CV",
+      versionName: "Default",
+      isBaseVersion: true,
+    });
+    const text = placements(pdf).map((p) => p.text).join(" ");
+    for (const skill of many) expect(text).toContain(skill);
+    expect(text.match(/Skill39/g)).toHaveLength(1);
+  });
+});

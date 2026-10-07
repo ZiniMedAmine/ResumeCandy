@@ -144,6 +144,10 @@ export const en = {
 
   /* --------------------------------- editor -------------------------------- */
   editor: {
+    ats: "ATS check",
+    atsTitle: "ATS readiness: {score}/100",
+    job: "Job & links",
+    jobTitle: "Job posting, links and description for {name}",
     content: "Content",
     customize: "Customize",
     saving: "Saving…",
@@ -161,6 +165,15 @@ export const en = {
 
   /* -------------------------------- content -------------------------------- */
   content: {
+    photo: "Photo",
+    uploadPhoto: "Upload photo",
+    changePhoto: "Change",
+    removePhoto: "Remove photo",
+    photoHint: "Printed when Show photo is on (Customize → Header). Cropped to a square.",
+    linksTitle: "Links & personal details",
+    linksHint:
+      "LinkedIn, GitHub, Behance, portfolio, nationality… Added on a named version, an item stays on that version only.",
+    addLink: "Add link or detail",
     personalDetails: "Personal details",
     personalDetailsHint: "Name, contact, summary",
     addContent: "Add Content",
@@ -243,6 +256,7 @@ export const en = {
 
   /* --------------------------------- kinds --------------------------------- */
   kind: {
+    contact: "Link or detail",
     header: "Header",
     section: "Section",
     experience: "Experience",
@@ -261,6 +275,10 @@ export const en = {
 
   /* --------------------------------- fields -------------------------------- */
   field: {
+    photo: "Photo",
+    value: "Value",
+    label: "Label",
+    type: "Type",
     fullName: "Full name",
     headline: "Headline",
     email: "Email",
@@ -287,6 +305,9 @@ export const en = {
 
   /* ------------------------------ entry fields ------------------------------ */
   fields: {
+    companyUrl: "Company website",
+    schoolUrl: "School website",
+    credentialUrl: "Credential URL",
     projectName: "Project name",
     groupName: "Group name",
     certification: "Certification",
@@ -301,6 +322,9 @@ export const en = {
     hideSkill: "Hide skill in this version",
     hiddenSkill: "Hidden in this version — click to show",
     placeholder: {
+      companyUrl: "acme.com",
+      schoolUrl: "university.edu",
+      credentialUrl: "credly.com/badges/…",
       title: "Senior Engineer",
       company: "Acme Corp",
       location: "Remote",
@@ -352,6 +376,15 @@ export const en = {
 
   /* -------------------------------- customize ------------------------------- */
   customize: {
+    headerLayout: "Layout",
+    nameCase: "Name capitalization",
+    photoShape: "Photo shape",
+    photoSize: "Photo size",
+    bulletStyle: "Bullet style",
+    skillStyle: "Skills display",
+    linkText: "Show links as",
+    linkTextHint:
+      "Full addresses stay readable to applicant tracking systems, which read the printed text and ignore hidden link targets.",
     rail: {
       document: "Document",
       templates: "Templates",
@@ -430,7 +463,7 @@ export const en = {
     headerDetails: "Details arrangement",
     headerSeparator: "Separator",
     showPhoto: "Show photo",
-    showPhotoHint: "A placeholder circle until photo uploads land",
+    showPhotoHint: "Upload it under Personal details. ATS ignore photos, and US/UK recruiters often prefer none.",
     linkUnderline: "Underline",
     linkAccent: "Accent color",
     linkIcon: "Link icon",
@@ -447,6 +480,12 @@ export const en = {
    * options *are* rather than a copy deck of what they are called.
    */
   design: {
+    headerLayout: { stacked: "Stacked", split: "Split", banner: "Banner" },
+    nameCase: { normal: "As typed", uppercase: "UPPERCASE" },
+    photoShape: { circle: "Circle", rounded: "Rounded", square: "Square" },
+    bulletStyle: { dot: "• Dot", dash: "– Dash", square: "▪ Square", arrow: "› Arrow" },
+    skillStyle: { inline: "Inline", chips: "Chips", list: "List" },
+    linkText: { url: "Full URL", name: "Name only" },
     template: {
       classic: { name: "Classic", description: "Serif, centered header, ruled sections" },
       modern: { name: "Modern", description: "Sans-serif, accent header, sidebar column" },
@@ -472,6 +511,7 @@ export const en = {
     headerDetails: { inline: "Inline", stacked: "Stacked" },
     headerSeparator: { icon: "Icon", bullet: "Bullet", bar: "Bar" },
     accentTarget: {
+      accentIcons: "Contact icons",
       accentName: "Name",
       accentSubtitle: "Company / subtitle",
       accentHeadings: "Section headings",
@@ -648,6 +688,7 @@ export const en = {
    * at render. Every key here must therefore be reachable by name.
    */
   toast: {
+    photoFailed: "That image could not be read. Try a JPG or PNG.",
     saveFailed: "Failed to save — your last change may not persist",
     customizedFor: "Customized for {name} — other versions keep the Default",
     hiddenInDefault: "Hidden in the Default — versions keep their own visibility",
@@ -686,6 +727,176 @@ export const en = {
     pdfStarted: "PDF download started",
     pdfFailed: "Could not create the PDF. Please try again.",
     languageChanged: "Interface language changed",
+  },
+
+  /* ------------------------- header links & details ------------------------ */
+  contacts: {
+    pastePlaceholder: "Paste a profile URL — LinkedIn, GitHub, Behance…",
+    group: { network: "Profiles", web: "Websites", detail: "Personal details" },
+    /** Names for the non-brand types; brands (LinkedIn…) are never translated. */
+    type: {
+      portfolio: "Portfolio",
+      blog: "Blog",
+      link: "Other link",
+      nationality: "Nationality",
+      birthDate: "Date of birth",
+      drivingLicense: "Driving licence",
+      workPermit: "Work authorization",
+      availability: "Availability / notice",
+      info: "Other detail",
+    },
+    changeType: "Change type",
+    labelPlaceholder: "Label (optional)",
+    infoLabelPlaceholder: "Label, e.g. Visa",
+    open: "Open link",
+    empty: "No links yet — add your LinkedIn, GitHub or portfolio.",
+  },
+
+  /* -------------------------------- ATS check ------------------------------- */
+  ats: {
+    title: "ATS check",
+    subtitle: "How applicant tracking systems will read {name}",
+    close: "Close ATS check",
+    great: "Ready to send",
+    good: "Almost there",
+    low: "Needs work",
+    toImprove: "To improve",
+    passed: "Looks good",
+    words: plural({ one: "{n} word", other: "{n} words" }),
+    keywordsTitle: "Keyword match",
+    keywordsEmpty: "Paste the job description under Job & links to see which of its key terms this version mentions.",
+    addJobDescription: "Add job description",
+    coverage: "{coverage}% of the posting’s key terms appear in this version",
+    found: "Found",
+    missing: "Missing",
+    missingHint: "Work the missing terms in where they are true — in a bullet, a skill or the summary.",
+    checks: {
+      name: {
+        title: "Full name",
+        pass: "Your name is at the top, where parsers look for it.",
+        issue: "Add your full name — without it the application can’t be matched to you.",
+      },
+      email: {
+        title: "Email",
+        pass: "A valid email address is listed.",
+        issue: "Add a valid email address — it is how recruiters reply.",
+      },
+      phone: {
+        title: "Phone",
+        pass: "A phone number is listed.",
+        issue: "Add a phone number — many ATS flag profiles without one.",
+      },
+      location: {
+        title: "Location",
+        pass: "Your location is listed.",
+        issue: "Add a city and country — location is one of the first filters recruiters apply.",
+      },
+      profiles: {
+        title: "Profile links",
+        pass: "At least one profile link is listed.",
+        issue: "Add LinkedIn, GitHub or a portfolio under Personal details.",
+      },
+      summary: {
+        title: "Summary",
+        pass: "A summary frames your profile.",
+        issue: "Add a 2–4 sentence summary (under ~900 characters) — it is read first.",
+      },
+      experience: {
+        title: "Experience section",
+        pass: "An Experience section is present.",
+        issue: "Add an Experience section — ATS look for it by type and heading.",
+      },
+      education: {
+        title: "Education section",
+        pass: "An Education section is present.",
+        issue: "Add an Education section — many filters require one.",
+      },
+      skills: {
+        title: "Skills",
+        pass: plural({ one: "{n} skill listed for keyword searches.", other: "{n} skills listed for keyword searches." }),
+        issue: "Add a Skills section — keyword searches match against it.",
+      },
+      dates: {
+        title: "Dates",
+        pass: "Every role and degree has dates.",
+        issue: plural({
+          one: "{n} entry has no dates — ATS compute years of experience from them.",
+          other: "{n} entries have no dates — ATS compute years of experience from them.",
+        }),
+      },
+      bullets: {
+        title: "Achievements",
+        pass: "Every role has bullet points.",
+        issue: plural({
+          one: "{n} role has no bullet points — say what you did and achieved.",
+          other: "{n} roles have no bullet points — say what you did and achieved.",
+        }),
+      },
+      bulletLength: {
+        title: "Bullet length",
+        pass: "Bullets are concise.",
+        issue: plural({
+          one: "{n} bullet runs over {max} characters — split it.",
+          other: "{n} bullets run over {max} characters — split them.",
+        }),
+      },
+      headings: {
+        title: "Section headings",
+        pass: "All headings are standard, so parsers know where to file each section.",
+        issue: "Non-standard headings: {titles}. Parsers may not know where to file them.",
+      },
+      columns: {
+        title: "Single column",
+        pass: "Content flows in one column — the safest reading order.",
+        issue: "Side columns can be read out of order by older ATS. Prefer One column (Customize → Layout) for online applications.",
+      },
+      photo: {
+        title: "Photo",
+        pass: "No photo — ATS ignore images anyway.",
+        issue: "A photo is shown. ATS skip it, and US/UK recruiters often prefer CVs without one.",
+      },
+      fontSize: {
+        title: "Font size",
+        pass: "Body text is large enough to parse reliably.",
+        issue: "Body text is {size}px — raise it to at least 11px.",
+      },
+      linkText: {
+        title: "Visible links",
+        pass: "Link addresses are printed as text, so parsers can read them.",
+        issue: "Links show names only, and parsers can’t see the hidden address. Switch to Full URL (Customize → Link Styling).",
+      },
+      length: {
+        title: "Length",
+        pass: "{n} words — a healthy length.",
+        issue: "{n} words — aim for between {min} and {max}.",
+      },
+    },
+  },
+
+  /* ------------------------ version links & job posting ---------------------- */
+  jobs: {
+    title: "Job & links",
+    subtitle: "Attached to {name} only — never printed on the resume.",
+    close: "Close",
+    linksTitle: "Attached links",
+    linksEmpty:
+      "Attach the posting you tailored this version for, the application portal or the recruiter’s profile — so you always know where this CV went.",
+    addLink: "Attach a link",
+    urlPlaceholder: "https://…",
+    labelPlaceholder: "Label (optional)",
+    open: "Open in a new tab",
+    remove: "Remove link",
+    kind: {
+      posting: "Job posting",
+      application: "Application",
+      company: "Company",
+      contact: "Recruiter / contact",
+      other: "Other",
+    },
+    linkCount: plural({ one: "{n} link", other: "{n} links" }),
+    descriptionTitle: "Job description",
+    descriptionHint: "Paste the posting. The ATS check compares its key terms with this version.",
+    descriptionPlaceholder: "Paste the job description here…",
   },
 };
 

@@ -3,15 +3,19 @@
 import { createContext, useContext } from "react";
 import {
   DESIGN_DEFAULTS,
+  fontStack,
   formatResumeDate,
   type DesignSettings,
   type SectionColumn,
 } from "@/lib/design";
+import { displayUrl, headerContacts, urlHref, type HeaderContactKind } from "@/lib/contacts";
 import { localeOf } from "@/lib/locale";
 import type { ResolvedNode, ResolvedTree, SectionType } from "@/lib/resume/types";
 import { GlobeIcon, LinkIcon, MailIcon, PhoneIcon, PinIcon } from "@/components/ui/icons";
-import { sectionIcon } from "@/components/ui/section-icons";
+import { ContactIcon } from "@/components/ui/contact-icons";
+import { SectionIcon } from "@/components/ui/section-icons";
 import { blockProps, useBlockMargins } from "./paged-paper";
+import { usePreviewMode } from "./resume-preview";
 
 /**
  * Templates only ever walk the tree's roots. Asking for just that keeps them
@@ -116,24 +120,6 @@ export function Marked({
   );
 }
 
-/**
- * Contact entries with their icons, in display order.
- *
- * Each carries the direction it must be read in. An address, a phone number
- * and a URL are Latin/numeric whatever language the CV is in, and a phone
- * number in particular has no strong character at all — dropped into an RTL
- * paragraph it would come out as "212+" — so those are pinned LTR. Only the
- * location can genuinely be Arabic, and it follows its own content.
- */
-export function contactEntries(data: Record<string, unknown>) {
-  return [
-    { key: "email", icon: MailIcon, value: s(data.email), link: false, dir: "ltr" as const },
-    { key: "phone", icon: PhoneIcon, value: s(data.phone), link: false, dir: "ltr" as const },
-    { key: "location", icon: PinIcon, value: s(data.location), link: false, dir: "auto" as const },
-    { key: "website", icon: GlobeIcon, value: s(data.website), link: true, dir: "ltr" as const },
-  ].filter((e) => e.value);
-}
-
 /** Date range "Mar 2022 – Jun 2024", in the version's date format and language. */
 export function dateRange(data: Record<string, unknown>, design: DesignSettings): string {
   const start = formatResumeDate(s(data.startDate), design);
@@ -220,7 +206,6 @@ export function SectionHeading({ node, blockId }: { node: ResolvedNode; blockId:
       break;
   }
 
-  const Icon = sectionIcon(node.data.sectionType as SectionType);
   // The paginator's push arrives as a style too, so it has to be merged in
   // rather than spread over the styling this heading just computed.
   const { style: pagingStyle, ...paging } = blockProps(margins, blockId, true);
@@ -232,7 +217,7 @@ export function SectionHeading({ node, blockId }: { node: ResolvedNode; blockId:
       {...paging}
       style={{ ...style, ...pagingStyle }}
     >
-      {headingIcons !== "none" && Icon && (
+      {headingIcons !== "none" && (
         <span
           className="inline-flex shrink-0 items-center justify-center"
           style={
@@ -246,7 +231,7 @@ export function SectionHeading({ node, blockId }: { node: ResolvedNode; blockId:
               : undefined
           }
         >
-          <Icon className="size-[1em]" />
+          <SectionIcon type={node.data.sectionType as SectionType} className="size-[1em]" />
         </span>
       )}
       {s(node.data.title)}
@@ -267,12 +252,18 @@ export function EntryHead({
   subtitle,
   date,
   location,
+  titleHref,
+  subtitleHref,
   paging,
 }: {
   title: string;
   subtitle?: string;
   date?: string;
   location?: string;
+  /** Makes the title a link (a project's or certificate's own URL). */
+  titleHref?: string | null;
+  /** Makes the subtitle a link (the company's or school's website). */
+  subtitleHref?: string | null;
   paging: ReturnType<typeof blockProps>;
 }) {
   const design = useDesignSettings();
@@ -288,12 +279,12 @@ export function EntryHead({
   // right while it sits on an Arabic page waiting to be rewritten.
   const titleEl = (
     <span dir="auto" className="font-bold text-zinc-900" style={titleStyle}>
-      {title}
+      <PaperAnchor href={titleHref}>{title}</PaperAnchor>
     </span>
   );
   const subtitleEl = subtitle ? (
     <span dir="auto" className="text-[0.95em] italic" style={{ color: subtitleColor }}>
-      {subtitle}
+      <PaperAnchor href={subtitleHref}>{subtitle}</PaperAnchor>
     </span>
   ) : null;
   // `auto` per element: a range of Arabic month names should read right to
@@ -394,7 +385,7 @@ export function EntryHead({
   );
 }
 
-/** A bulleted list, honouring the accent-bullets toggle. */
+/** A bulleted list, in the version's bullet style and colour. */
 export function BulletList({
   nodes,
   markCustomized,
@@ -402,7 +393,6 @@ export function BulletList({
   nodes: ResolvedNode[];
   markCustomized: boolean;
 }) {
-  const design = useDesignSettings();
   const margins = useBlockMargins();
   const bullets = visibleBullets(nodes);
   if (bullets.length === 0) return null;
@@ -410,10 +400,7 @@ export function BulletList({
     <ul className="mt-[0.25em] space-y-[0.15em]">
       {bullets.map((b) => (
         <li key={b.id} className="flex gap-[0.55em]" {...blockProps(margins, b.id)}>
-          <span
-            className="mt-[0.62em] size-[0.24em] shrink-0 rounded-full"
-            style={{ background: design.accentBullets ? "var(--accent)" : "#3f3f46" }}
-          />
+          <BulletMarker />
           <Marked
             node={b}
             markCustomized={markCustomized}
@@ -428,60 +415,370 @@ export function BulletList({
   );
 }
 
+/**
+ * The marker in front of a bullet, drawn as a shape rather than typed as a
+ * character: a "•" or "›" in the text layer is exactly the stray glyph a
+ * parser glues onto the start of every achievement.
+ */
+export function BulletMarker() {
+  const design = useDesignSettings();
+  const color = design.accentBullets ? "var(--accent)" : "#3f3f46";
+  switch (design.bulletStyle) {
+    case "dash":
+      return <span className="mt-[0.78em] h-[0.09em] w-[0.55em] shrink-0" style={{ background: color }} />;
+    case "square":
+      return <span className="mt-[0.6em] size-[0.26em] shrink-0" style={{ background: color }} />;
+    case "arrow":
+      return (
+        <span className="mt-[0.5em] flex size-[0.42em] shrink-0 items-center justify-center rtl:-scale-x-100">
+          <span
+            className="size-[0.3em] rotate-45 border-e-[0.09em] border-t-[0.09em]"
+            style={{ borderColor: color }}
+          />
+        </span>
+      );
+    default:
+      return <span className="mt-[0.62em] size-[0.24em] shrink-0 rounded-full" style={{ background: color }} />;
+  }
+}
+
+/**
+ * A real anchor around printed text, so a browser-printed PDF keeps the link
+ * clickable. Without an href it renders its children untouched.
+ */
+export function PaperAnchor({
+  href,
+  children,
+  styled = false,
+}: {
+  href: string | null | undefined;
+  children: React.ReactNode;
+  /** Apply the Link Styling settings (accent colour, underline). */
+  styled?: boolean;
+}) {
+  const design = useDesignSettings();
+  const { thumbnail } = usePreviewMode();
+  if (!href) return <>{children}</>;
+  const style: React.CSSProperties = {
+    color: styled && design.linkAccent ? "var(--accent)" : "inherit",
+    textDecoration: design.linkUnderline ? "underline" : "none",
+    textUnderlineOffset: "0.15em",
+  };
+  // A thumbnail is a picture of the page sitting inside a card link or a
+  // picker button; an <a> in there would nest interactive content, which
+  // HTML forbids and the browser "repairs" into a hydration mismatch. It
+  // keeps the link's look without being one.
+  if (thumbnail) return <span style={style}>{children}</span>;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" style={style}>
+      {children}
+    </a>
+  );
+}
+
 /** A URL rendered per the Link Styling settings. Always LTR — URLs are. */
 export function ResumeLink({ href, className = "" }: { href: string; className?: string }) {
   const design = useDesignSettings();
   if (!href) return null;
+  const target = urlHref(href);
   return (
-    <span
-      dir="ltr"
-      className={`inline-flex items-baseline gap-[0.25em] ${className}`}
-      style={{
-        color: design.linkAccent ? "var(--accent)" : undefined,
-        textDecoration: design.linkUnderline ? "underline" : undefined,
-        textUnderlineOffset: "0.15em",
-      }}
-    >
+    <span dir="ltr" className={`inline-flex items-baseline gap-[0.25em] ${className}`}>
       {design.linkIcon && <LinkIcon className="size-[0.85em] shrink-0 translate-y-[0.1em]" />}
-      {href}
+      <PaperAnchor href={target} styled>
+        {target ? displayUrl(target) : href}
+      </PaperAnchor>
     </span>
   );
 }
 
+/** The icon for one contact-line item: a header field's own, or the contact type's. */
+function ContactLineIcon({ kind }: { kind: HeaderContactKind }) {
+  const cls = "size-[1em] shrink-0";
+  switch (kind) {
+    case "email":
+      return <MailIcon className={cls} />;
+    case "phone":
+      return <PhoneIcon className={cls} />;
+    case "location":
+      return <PinIcon className={cls} />;
+    case "website":
+      return <GlobeIcon className={cls} />;
+    default:
+      return <ContactIcon type={kind} className={cls} />;
+  }
+}
+
 /**
- * The contact line under the name. `inline` wraps the details onto as few
- * lines as possible; `stacked` gives each its own line, which suits a narrow
- * left-aligned header.
+ * The contact line under the name: email, phone, location, website, then the
+ * header's links and details in the order the version arranged them.
+ *
+ * `inline` wraps the details onto as few lines as possible; `stacked` gives
+ * each its own line, which suits a narrow left-aligned or split header. Every
+ * item prints its text — the icons are decoration, so the line parses the
+ * same with or without them.
  */
-export function ContactLine({ data }: { data: Record<string, unknown> }) {
+export function ContactLine({
+  header,
+  align,
+  stacked,
+  inverse = false,
+}: {
+  header: ResolvedNode;
+  align: "start" | "center" | "end";
+  stacked: boolean;
+  /** White-on-accent, for the banner header. */
+  inverse?: boolean;
+}) {
   const design = useDesignSettings();
-  const contacts = contactEntries(data);
+  const contacts = headerContacts(header, { locale: design.language, linkText: design.linkText });
   if (contacts.length === 0) return null;
 
-  const center = design.headerAlign === "center";
-  const stacked = design.headerDetails === "stacked";
   const sep = design.headerSeparator;
+  const textColor = inverse ? "rgba(255,255,255,0.92)" : "#52525b";
+  const iconColor = inverse ? "rgba(255,255,255,0.85)" : design.accentIcons ? "var(--accent)" : "#71717a";
+  const justify = align === "center" ? "justify-center" : align === "end" ? "justify-end" : "";
+  const items = align === "center" ? "items-center" : align === "end" ? "items-end" : "items-start";
 
   return (
     <p
-      className={`mt-[0.5em] flex text-[0.85em] text-zinc-600 ${
+      className={`mt-[0.5em] flex text-[0.85em] ${
         stacked
-          ? `flex-col gap-y-[0.15em] ${center ? "items-center" : "items-start"}`
-          : `flex-wrap items-center gap-y-[0.2em] ${center ? "justify-center" : ""} ${
-              sep === "icon" ? "gap-x-[1.2em]" : "gap-x-[0.55em]"
-            }`
+          ? `flex-col gap-y-[0.15em] ${items}`
+          : `flex-wrap items-center gap-y-[0.2em] ${justify} ${sep === "icon" ? "gap-x-[1.2em]" : "gap-x-[0.55em]"}`
       }`}
+      style={{ color: textColor }}
     >
-      {contacts.map(({ key, icon: Icon, value, link, dir }, i) => (
-        <span key={key} className="inline-flex items-center gap-[0.35em]">
-          {!stacked && i > 0 && sep !== "icon" && (
-            <span className="text-zinc-400">{sep === "bullet" ? "·" : "|"}</span>
-          )}
-          {sep === "icon" && <Icon className="size-[1em] text-zinc-500" />}
-          {link ? <ResumeLink href={value} /> : <span dir={dir}>{value}</span>}
-        </span>
-      ))}
+      {contacts.map((c, i) => {
+        return (
+          <span key={c.key} className="inline-flex items-center gap-[0.35em]">
+            {!stacked && i > 0 && sep !== "icon" && (
+              <span style={{ color: inverse ? "rgba(255,255,255,0.6)" : "#a1a1aa" }}>
+                {sep === "bullet" ? "·" : "|"}
+              </span>
+            )}
+            {sep === "icon" && (
+              <span className="inline-flex" style={{ color: iconColor }}>
+                <ContactLineIcon kind={c.kind} />
+              </span>
+            )}
+            <span dir={c.dir}>
+              {c.prefix && <span className="font-semibold">{c.prefix}: </span>}
+              {c.href && c.kind !== "email" && c.kind !== "phone" ? (
+                <PaperAnchor href={c.href} styled={!inverse}>
+                  {c.text}
+                </PaperAnchor>
+              ) : c.href ? (
+                <PaperAnchor href={c.href}>{c.text}</PaperAnchor>
+              ) : (
+                c.text
+              )}
+            </span>
+          </span>
+        );
+      })}
     </p>
+  );
+}
+
+/**
+ * The header: name, title, contact line and summary, in one of three
+ * arrangements. Each template brings its own typographic voice (`variant`),
+ * the version brings the arrangement.
+ *
+ * Whatever the arrangement, the DOM order is name → title → contacts →
+ * summary, which is the order text extraction reads it in.
+ */
+export function ResumeHeader({
+  node,
+  markCustomized,
+  variant,
+}: {
+  node: ResolvedNode;
+  markCustomized: boolean;
+  variant: "classic" | "modern";
+}) {
+  const design = useDesignSettings();
+  const d = node.data;
+  const layout = design.headerLayout;
+  const banner = layout === "banner";
+  const split = layout === "split";
+  const center = !split && design.headerAlign === "center";
+  const modern = variant === "modern";
+
+  const name = (
+    <h1
+      dir="auto"
+      className={`leading-tight tracking-tight ${modern ? "font-extrabold" : "font-bold"}`}
+      style={{
+        fontSize: emFor(design, design.nameSize),
+        fontFamily: design.nameFont ? fontStack(design.nameFont) : undefined,
+        color: banner ? "#ffffff" : design.accentName ? "var(--accent)" : "#18181b",
+        textTransform: design.nameCase === "uppercase" ? "uppercase" : undefined,
+        letterSpacing: design.nameCase === "uppercase" ? "0.04em" : undefined,
+      }}
+    >
+      {s(d.fullName) || "Your Name"}
+    </h1>
+  );
+  const headline = s(d.headline) ? (
+    <p
+      dir="auto"
+      className={modern ? "mt-[0.05em] font-semibold" : "mt-[0.1em] italic"}
+      style={{
+        fontSize: emFor(design, design.titleSize),
+        color: banner ? "rgba(255,255,255,0.88)" : design.accentSubtitle ? "var(--accent)" : "#3f3f46",
+      }}
+    >
+      {s(d.headline)}
+    </p>
+  ) : null;
+  const summary = s(d.summary) ? (
+    <p dir="auto" className="mt-[0.8em] text-start text-[0.95em] leading-[inherit] text-zinc-700">
+      {s(d.summary)}
+    </p>
+  ) : null;
+  const rule = modern && !banner && (
+    <div
+      className={`mt-[0.9em] h-[3px] w-[3.2em] rounded-full ${center ? "mx-auto" : ""}`}
+      style={{ background: "var(--accent)" }}
+    />
+  );
+
+  if (split) {
+    return (
+      <Marked node={node} markCustomized={markCustomized} blockId={node.id} className="mb-[var(--sec-gap)]">
+        <div className="flex items-center justify-between gap-[1.5em]">
+          <div className="flex min-w-0 items-center gap-[1.2em]">
+            <HeaderPhoto data={d} />
+            <div className="min-w-0">
+              {name}
+              {headline}
+            </div>
+          </div>
+          <div className="shrink-0 text-end">
+            <ContactLine header={node} align="end" stacked />
+          </div>
+        </div>
+        {summary}
+        {rule}
+      </Marked>
+    );
+  }
+
+  const body = (
+    <div className={`flex items-center gap-[1.2em] ${center ? "justify-center text-center" : "text-start"}`}>
+      <HeaderPhoto data={d} />
+      <div className="min-w-0">
+        {name}
+        {headline}
+        <ContactLine
+          header={node}
+          align={center ? "center" : "start"}
+          stacked={design.headerDetails === "stacked"}
+          inverse={banner}
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <Marked node={node} markCustomized={markCustomized} blockId={node.id} className="mb-[var(--sec-gap)]">
+      {banner ? (
+        <div className="rounded-[0.35em] px-[1.4em] py-[1.2em]" style={{ background: "var(--accent)" }}>
+          {body}
+        </div>
+      ) : (
+        body
+      )}
+      {summary}
+      {rule}
+    </Marked>
+  );
+}
+
+/**
+ * A skill group as a sentence ("Languages: Go, Rust"), as chips, or as a
+ * list. However it is drawn, the skills are separate text runs in order, so a
+ * parser reads the same words either way.
+ */
+export function SkillGroupView({
+  node,
+  markCustomized,
+}: {
+  node: ResolvedNode;
+  markCustomized: boolean;
+}) {
+  const design = useDesignSettings();
+  const skills = node.children.filter((c) => c.kind === "skill" && s(c.data.name));
+  const name = s(node.data.name);
+  if (!name && skills.length === 0) return null;
+
+  if (design.skillStyle === "inline") {
+    return (
+      <Marked node={node} markCustomized={markCustomized} blockId={node.id} className="text-[0.95em]">
+        {name && <span dir="auto" className="font-bold text-zinc-900">{name}: </span>}
+        <span className="text-zinc-700">
+          {skills.map((sk, i) => (
+            <span key={sk.id}>
+              {i > 0 && ", "}
+              <Marked node={sk} markCustomized={markCustomized} dir="auto" className="inline-block">
+                {s(sk.data.name)}
+              </Marked>
+            </span>
+          ))}
+        </span>
+      </Marked>
+    );
+  }
+
+  const label = name ? (
+    <p dir="auto" className="mb-[0.35em] text-[0.85em] font-bold text-zinc-900">
+      {name}
+    </p>
+  ) : null;
+
+  if (design.skillStyle === "list") {
+    return (
+      <Marked node={node} markCustomized={markCustomized} blockId={node.id}>
+        {label}
+        <ul
+          className="grid gap-x-[1em] gap-y-[0.1em] text-[0.92em] text-zinc-700"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(9em, 1fr))" }}
+        >
+          {skills.map((sk) => (
+            <li key={sk.id} className="flex gap-[0.5em]">
+              <BulletMarker />
+              <Marked node={sk} markCustomized={markCustomized} dir="auto" className="min-w-0 flex-1">
+                {s(sk.data.name)}
+              </Marked>
+            </li>
+          ))}
+        </ul>
+      </Marked>
+    );
+  }
+
+  return (
+    <Marked node={node} markCustomized={markCustomized} blockId={node.id}>
+      {label}
+      <div className="flex flex-wrap gap-[0.35em]">
+        {skills.map((sk) => (
+          <Marked key={sk.id} node={sk} markCustomized={markCustomized} className="inline-block">
+            <span
+              dir="auto"
+              className="inline-block rounded-[0.35em] border px-[0.55em] py-[0.12em] text-[0.82em]"
+              style={
+                design.accentBullets
+                  ? { borderColor: "var(--accent)", color: "var(--accent)", background: "transparent" }
+                  : { borderColor: "#e4e4e7", background: "#fafafa", color: "#3f3f46" }
+              }
+            >
+              {s(sk.data.name)}
+            </span>
+          </Marked>
+        ))}
+      </div>
+    </Marked>
   );
 }
 
@@ -540,17 +837,29 @@ export function SectionColumns({
   );
 }
 
-/** Optional circular photo in the header. Placeholder until uploads exist. */
+/**
+ * The header photo, in the chosen shape and size. Uploaded photos are stored
+ * on the header node as a small data URL, so they layer per version like any
+ * other field; with none uploaded, a placeholder shows where it will sit.
+ */
 export function HeaderPhoto({ data }: { data: Record<string, unknown> }) {
   const design = useDesignSettings();
+  const { print } = usePreviewMode();
   if (!design.showPhoto) return null;
-  const url = s(data.photoUrl);
+  const url = s(data.photo) || s(data.photoUrl);
+  // The placeholder is a hint for the editor, never something to print.
+  if (!url && print) return null;
+  const radius = design.photoShape === "circle" ? "9999px" : design.photoShape === "rounded" ? "0.6em" : "0";
+  const size = `${design.photoSize}px`;
   return (
     <div
-      className="size-[5.2em] shrink-0 overflow-hidden rounded-full border border-zinc-200 bg-zinc-100"
-      style={url ? { backgroundImage: `url(${url})`, backgroundSize: "cover" } : undefined}
+      className="shrink-0 overflow-hidden border border-zinc-200 bg-zinc-100"
+      style={{ width: size, height: size, borderRadius: radius }}
     >
-      {!url && (
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a data URL on the printed page, not a network image
+        <img src={url} alt="" className="block h-full w-full object-cover" />
+      ) : (
         <span className="flex h-full w-full items-center justify-center text-[0.7em] text-zinc-400">
           Photo
         </span>
