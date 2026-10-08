@@ -81,6 +81,8 @@ export const en = {
   /* -------------------------------- sidebar -------------------------------- */
   sidebar: {
     resumes: "Resumes",
+    profile: "Master profile",
+    tailor: "Tailor to a job",
     account: "My account",
     signOut: "Sign out",
     storedLocally: "Stored on this machine.",
@@ -160,6 +162,9 @@ export const en = {
     download: "Download",
     preparingPdf: "Preparing PDF…",
     downloadAsPdf: "Download {name} as PDF",
+    fitPage: "Fit to 1 page",
+    fitPageTitle: "Tighten type and spacing until the PDF fits on one page",
+    fitting: "Fitting…",
     newVersion: "New version",
   },
 
@@ -726,6 +731,10 @@ export const en = {
     }),
     pdfStarted: "PDF download started",
     pdfFailed: "Could not create the PDF. Please try again.",
+    fitDone: "Fitted on one page",
+    alreadyOnePage: "Already fits on one page",
+    fitTooLong: "Still {n} pages at the smallest comfortable size — cut a few bullets",
+    coverCopied: "Cover letter copied",
     languageChanged: "Interface language changed",
   },
 
@@ -897,6 +906,100 @@ export const en = {
     descriptionTitle: "Job description",
     descriptionHint: "Paste the posting. The ATS check compares its key terms with this version.",
     descriptionPlaceholder: "Paste the job description here…",
+    coverTitle: "Cover letter",
+    coverHint: "Written from your master profile for this job description. Edit freely — it is never printed on the resume.",
+    coverWrite: "Write cover letter",
+    coverWriting: "Writing…",
+    coverRewrite: "Rewrite",
+    coverCopy: "Copy",
+    coverDownload: "PDF",
+    coverNeedsJob: "Paste the job description above first.",
+    coverPlaceholder: "Your cover letter…",
+  },
+
+  /* ----------------------------- master profile ----------------------------- */
+  profile: {
+    title: "Master profile",
+    subtitle:
+      "Everything you have done, know and achieved, in one place. Tailored resumes are written only from this — nothing in them is invented.",
+    placeholder:
+      "# Your Name — Master Profile\n\n## Identity\n- Location, work permit, email, phone, LinkedIn, GitHub…\n\n## Experience\n### Title — Company\n**Mar 2022 – Present | City, Country**\n- What you did, with which tools, and the measurable result\n\n## Projects\n## Education\n## Skills\n## Certifications\n## Languages",
+    importFile: "Import a file",
+    importHint: "Markdown or plain text, such as a profile written for another tool.",
+    importFailed: "That file could not be read. Use a .md or .txt file.",
+    save: "Save",
+    saving: "Saving…",
+    saved: "Saved",
+    unsaved: "Unsaved changes",
+    words: plural({ one: "{n} word", other: "{n} words" }),
+    tipsTitle: "What to include",
+    tip1: "Every role, with dates, location and every bullet you have ever written for it.",
+    tip2: "The numbers: volumes, time saved, users, money, team size. Tailoring never invents them.",
+    tip3: "Projects, certifications, languages with their level, and your work permit status.",
+    tip4: "Write it once, in any language — each tailored resume is written in the posting’s.",
+    tailorCta: "Tailor to a job",
+  },
+
+  /* --------------------------------- tailor --------------------------------- */
+  tailor: {
+    title: "Tailor to a job",
+    subtitle:
+      "Paste a job posting. Claude checks how well you fit it against your master profile, then writes a one-page resume for it in the template you choose.",
+    noProfileTitle: "Start with your master profile",
+    noProfileBody:
+      "Tailored resumes are written only from your master profile. Add it first: an old CV, your LinkedIn summary, projects and the numbers you are proud of.",
+    noProfileCta: "Set up my profile",
+    jobLabel: "Job description",
+    jobPlaceholder: "Paste the full job posting here…",
+    urlLabel: "Link to the posting (optional)",
+    urlPlaceholder: "https://…",
+    templateLabel: "Template",
+    languageLabel: "Language of the resume",
+    languageAuto: "Match the posting",
+    coverLetter: "Also write a cover letter",
+    check: "Check my fit",
+    checking: "Reading the posting against your profile…",
+    skipCheck: "Skip the check and generate",
+    generate: "Generate tailored resume",
+    generateAnyway: "Generate anyway",
+    generating: "Writing your resume…",
+    generatingHint: "This usually takes about a minute; a cover letter adds a little more. Keep this tab open.",
+    doneTitle: "Your tailored resume is ready",
+    doneHint: "It opens in the editor and fits itself on one page. Read every line before sending: you are the final check.",
+    openResume: "Open resume",
+    changeJob: "Change the job",
+    verdict: {
+      greenlit: "Good fit — apply",
+      borderline: "Borderline — your call",
+      notAdvised: "Not advised",
+    },
+    verdictBody: {
+      greenlit: "You meet the hard requirements. The resume will lead with the strengths below.",
+      borderline: "You meet most but not all hard requirements. The gaps may come up in interview.",
+      notAdvised:
+        "The gap is wide enough that a CV would have to stretch the truth. Roles closer to your profile are a better use of your time.",
+    },
+    hardScore: "Hard requirements",
+    overallScore: "Overall",
+    requirements: "Requirements",
+    category: { hard: "Required", nice: "Nice to have", soft: "Soft skill" },
+    status: { match: "Match", partial: "Partial", mitigable: "Learnable", gap: "Gap" },
+    strengths: "Your strengths for this role",
+    framing: "How the resume will frame the gaps",
+    errorTitle: "Claude could not finish",
+    details: "Details",
+    retry: "Try again",
+    error: {
+      "cli-missing":
+        "ResumeCandy talks to Claude through the Claude Code command-line tool, which was not found on this machine. Install Claude Code, run “claude” once in a terminal to sign in with your Claude account, then restart ResumeCandy. If it is installed somewhere else, set CLAUDE_CLI_PATH in .env.local.",
+      "not-signed-in":
+        "Claude Code is not signed in (or its sign-in expired). Run “claude” in a terminal, sign in with your Claude account, and try again.",
+      timeout: "Claude took too long to answer. Try again in a moment.",
+      failed: "Something went wrong while talking to Claude.",
+      "bad-output": "Claude’s answer came back incomplete. Try again.",
+      "no-profile": "Your master profile is empty.",
+      "no-job": "Paste the job description first.",
+    },
   },
 };
 

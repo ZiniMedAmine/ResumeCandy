@@ -110,6 +110,7 @@ export interface ResumeStoreState {
   /** URLs attached to a version (posting, portal…). Debounced while typing. */
   setVersionLinks(versionId: string, links: VersionLink[]): void;
   setJobDescription(versionId: string, text: string): void;
+  setCoverLetter(versionId: string, text: string): void;
   archiveVersion(versionId: string, archived: boolean): void;
   trashVersion(versionId: string): void;
   restoreTrashed(versionId: string): void;
@@ -887,6 +888,7 @@ export function createResumeStore(
           // A new version is a new application: it starts with no posting.
           links: [],
           jobDescription: null,
+          coverLetter: null,
           createdFromVersionId: from?.id ?? baseVersion().id,
           lastOpenedAt: Date.now(),
           archivedAt: null,
@@ -977,6 +979,17 @@ export function createResumeStore(
         }));
         debounced(`jd:${versionId}`, () =>
           versionActions.setJobDescription({ versionId, text: text.trim() ? text : null }),
+        );
+      },
+
+      setCoverLetter(versionId, text) {
+        set((st) => ({
+          versions: st.versions.map((v) =>
+            v.id === versionId ? { ...v, coverLetter: text || null, updatedAt: Date.now() } : v,
+          ),
+        }));
+        debounced(`cover:${versionId}`, () =>
+          versionActions.setCoverLetter({ versionId, text: text.trim() ? text : null }),
         );
       },
 

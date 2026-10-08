@@ -1,11 +1,22 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { ExternalLinkIcon, LinkIcon, PlusIcon, XIcon } from "@/components/ui/icons";
+import { useState, useTransition } from "react";
+import { writeCoverLetter, type AiFailure } from "@/app/actions/tailor";
+import {
+  CopyIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
+  LinkIcon,
+  PlusIcon,
+  SparkleIcon,
+  XIcon,
+} from "@/components/ui/icons";
 import { displayUrl, urlHref } from "@/lib/contacts";
 import { useI18n } from "@/lib/i18n/provider";
-import type { VersionLink, VersionLinkKind } from "@/lib/resume/types";
-import { useResumeStore } from "@/store/resume-store";
+import { downloadCoverLetterPdf } from "@/lib/pdf/resume-pdf";
+import type { Version, VersionLink, VersionLinkKind } from "@/lib/resume/types";
+import { useDesign, useRenderTree, useResumeStore } from "@/store/resume-store";
 
 const KINDS: VersionLinkKind[] = ["posting", "application", "company", "contact", "other"];
 
@@ -162,8 +173,100 @@ export function JobPanel({ onClose }: { onClose: () => void }) {
             className={`${field} resize-y leading-relaxed`}
           />
         </section>
+
+        <CoverLetter version={version} field={field} />
       </div>
     </aside>
+  );
+}
+
+/**
+ * The cover letter for this version's application. Written by Claude from the
+ * master profile against the job description above, then the person's to
+ * edit; like the rest of this panel, it is never printed on the résumé.
+ */
+function CoverLetter({ version, field }: { version: Version; field: string }) {
+  const { t } = useI18n();
+  const setCoverLetter = useResumeStore((s) => s.setCoverLetter);
+  const toast = useResumeStore((s) => s.toast);
+  const resumeName = useResumeStore((s) => s.resumeName);
+  const tree = useRenderTree();
+  const { design, onBase } = useDesign();
+  const [writing, startWriting] = useTransition();
+  const [error, setError] = useState<AiFailure | null>(null);
+  const letter = version.coverLetter ?? "";
+  const hasJob = Boolean(version.jobDescription?.trim());
+
+  const write = () =>
+    startWriting(async () => {
+      setError(null);
+      const result = await writeCoverLetter({ versionId: version.id, jobDescription: version.jobDescription ?? "" });
+      if (result.ok) setCoverLetter(version.id, result.letter);
+      else setError(result);
+    });
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(letter);
+    toast({ message: "coverCopied", kind: "success" });
+  };
+
+  const download = async () => {
+    try {
+      await downloadCoverLetterPdf({ tree, design, resumeName, versionName: version.name, isBaseVersion: onBase, letter });
+    } catch (e) {
+      console.error(e);
+      toast({ message: "pdfFailed", kind: "error" });
+    }
+  };
+
+  const small =
+    "pressable flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-medium text-ink-faint transition-colors duration-150 hover:bg-sunken hover:text-ink disabled:opacity-50";
+
+  return (
+    <section>
+      <div className="mb-1 flex items-center justify-between gap-2 px-1">
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-ink-faint">{t.jobs.coverTitle}</p>
+        {letter && (
+          <div className="flex items-center">
+            <button type="button" onClick={copy} className={small} title={t.jobs.coverCopy}>
+              <CopyIcon className="size-3.5" />
+              {t.jobs.coverCopy}
+            </button>
+            <button type="button" onClick={download} className={small}>
+              <DownloadIcon className="size-3.5" />
+              {t.jobs.coverDownload}
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="mb-2 px-1 text-[11.5px] leading-relaxed text-ink-faint">
+        {hasJob ? t.jobs.coverHint : t.jobs.coverNeedsJob}
+      </p>
+      {error && (
+        <p className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-[11.5px] leading-relaxed text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+          {t.tailor.error[error.error]}
+        </p>
+      )}
+      {letter ? (
+        <textarea
+          value={letter}
+          dir="auto"
+          rows={14}
+          placeholder={t.jobs.coverPlaceholder}
+          onChange={(e) => setCoverLetter(version.id, e.target.value)}
+          className={`${field} resize-y leading-relaxed`}
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={write}
+        disabled={!hasJob || writing}
+        className={`${small} mt-2 text-rose-500 hover:text-rose-600`}
+      >
+        <SparkleIcon className="size-3.5" />
+        {writing ? t.jobs.coverWriting : letter ? t.jobs.coverRewrite : t.jobs.coverWrite}
+      </button>
+    </section>
   );
 }
 

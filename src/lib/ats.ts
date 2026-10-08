@@ -17,6 +17,7 @@ import { isLinkType } from "./contacts";
 import type { DesignSettings } from "./design";
 import { isStandardHeading } from "./locale";
 import type { ResolvedNode } from "./resume/types";
+import { stripRichText } from "./rich-text";
 
 export type AtsStatus = "pass" | "warn" | "fail";
 
@@ -86,7 +87,7 @@ export function resumeText(roots: ResolvedNode[]): string {
   walk(roots, (n) => {
     for (const [key, value] of Object.entries(n.data)) {
       if (NON_TEXT_FIELDS.has(key) || typeof value !== "string") continue;
-      const v = value.trim();
+      const v = stripRichText(value).trim();
       if (v) parts.push(v);
     }
   });
@@ -153,7 +154,7 @@ export function analyzeResume(roots: ResolvedNode[], design: DesignSettings): At
         if (bullets.length === 0) bulletless += 1;
       }
       walk(entry.children, (b) => {
-        if (b.kind === "bullet" && str(b.data.text).length > LONG_BULLET) longBullets += 1;
+        if (b.kind === "bullet" && stripRichText(str(b.data.text)).length > LONG_BULLET) longBullets += 1;
       });
     }
   }

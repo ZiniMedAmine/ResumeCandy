@@ -190,6 +190,8 @@ export interface Version {
   links: VersionLink[];
   /** The job description this version targets — drives the keyword check. */
   jobDescription: string | null;
+  /** A cover letter for the same application — never printed on the CV. */
+  coverLetter: string | null;
   createdFromVersionId: string | null;
   lastOpenedAt: number | null;
   archivedAt: number | null;

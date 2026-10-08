@@ -10,6 +10,7 @@ import {
 } from "@/lib/design";
 import { displayUrl, headerContacts, urlHref, type HeaderContactKind } from "@/lib/contacts";
 import { localeOf } from "@/lib/locale";
+import { parseRichText } from "@/lib/rich-text";
 import type { ResolvedNode, ResolvedTree, SectionType } from "@/lib/resume/types";
 import { GlobeIcon, LinkIcon, MailIcon, PhoneIcon, PinIcon } from "@/components/ui/icons";
 import { ContactIcon } from "@/components/ui/contact-icons";
@@ -385,6 +386,27 @@ export function EntryHead({
   );
 }
 
+/**
+ * Résumé text with its `**bold**` runs drawn in the bold face — the job's
+ * keywords, picked out for a skimming reader. The marks themselves are never
+ * rendered.
+ */
+export function RichText({ value }: { value: string }) {
+  return (
+    <>
+      {parseRichText(value).map((run, i) =>
+        run.bold ? (
+          <strong key={i} className="font-bold text-zinc-900">
+            {run.text}
+          </strong>
+        ) : (
+          run.text
+        ),
+      )}
+    </>
+  );
+}
+
 /** A bulleted list, in the version's bullet style and colour. */
 export function BulletList({
   nodes,
@@ -407,7 +429,7 @@ export function BulletList({
             dir="auto"
             className="flex-1 text-[0.95em] text-zinc-700"
           >
-            {s(b.data.text)}
+            <RichText value={s(b.data.text)} />
           </Marked>
         </li>
       ))}
@@ -634,7 +656,7 @@ export function ResumeHeader({
   ) : null;
   const summary = s(d.summary) ? (
     <p dir="auto" className="mt-[0.8em] text-start text-[0.95em] leading-[inherit] text-zinc-700">
-      {s(d.summary)}
+      <RichText value={s(d.summary)} />
     </p>
   ) : null;
   const rule = modern && !banner && (

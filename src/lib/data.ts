@@ -289,6 +289,7 @@ export async function loadResumePayload(resumeId: string): Promise<ResumePayload
       tags: v.tags ?? [],
       links: (v.links ?? []) as Version["links"],
       jobDescription: v.jobDescription ?? null,
+      coverLetter: v.coverLetter ?? null,
       createdFromVersionId: v.createdFromVersionId,
       lastOpenedAt: v.lastOpenedAt,
       archivedAt: v.archivedAt,
@@ -332,4 +333,11 @@ export function defaultVersionId(resumeId: string): string | null {
     .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0));
   if (opened.length > 0) return opened[0].id;
   return rows.find((r) => r.isBase)?.id ?? rows[0].id;
+}
+
+/** The signed-in user's master profile ("" until they write one). */
+export async function getProfile(): Promise<{ content: string; updatedAt: number | null }> {
+  const user = await requireUser();
+  const row = db.select().from(tables.profiles).where(eq(tables.profiles.userId, user.id)).all()[0];
+  return { content: row?.content ?? "", updatedAt: row?.updatedAt ?? null };
 }

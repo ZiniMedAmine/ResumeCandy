@@ -54,6 +54,19 @@ export const sessions = sqliteTable(
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
 
+/**
+ * The master profile: everything a user has done, known and achieved, as one
+ * free-form markdown document. It is never printed; tailored resumes are
+ * generated from it, and it is the only source they may draw facts from.
+ */
+export const profiles = sqliteTable("profiles", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull().default(""),
+  updatedAt: integer("updated_at").notNull().$defaultFn(now),
+});
+
 export const collections = sqliteTable(
   "collections",
   {
@@ -149,6 +162,8 @@ export const versions = sqliteTable(
       .default([]),
     // The job description this version targets; the ATS keyword check reads it.
     jobDescription: text("job_description"),
+    // A cover letter written for the same application. Never printed on the CV.
+    coverLetter: text("cover_letter"),
     settingsPatch: text("settings_patch", { mode: "json" }).$type<Record<
       string,
       unknown
@@ -219,6 +234,7 @@ export const edits = sqliteTable(
 
 export type UserRow = typeof users.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
+export type ProfileRow = typeof profiles.$inferSelect;
 export type CollectionRow = typeof collections.$inferSelect;
 export type ResumeRow = typeof resumes.$inferSelect;
 export type NodeRow = typeof nodes.$inferSelect;

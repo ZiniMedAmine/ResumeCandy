@@ -151,6 +151,20 @@ export async function setJobDescription(input: { versionId: string; text: string
   return { ok: true as const };
 }
 
+const MAX_COVER_LETTER = 20_000;
+
+/** The cover letter written for this version's application (null clears it). */
+export async function setCoverLetter(input: { versionId: string; text: string | null }) {
+  const resumeId = await assertOwnsVersion(input.versionId);
+  const text = input.text?.slice(0, MAX_COVER_LETTER) || null;
+  db.update(versions)
+    .set({ coverLetter: text, updatedAt: Date.now() })
+    .where(eq(versions.id, input.versionId))
+    .run();
+  touchResume(resumeId);
+  return { ok: true as const };
+}
+
 /** Merge keys into the version's settings patch (e.g. accent color). */
 export async function setVersionSettings(input: {
   resumeId: string;

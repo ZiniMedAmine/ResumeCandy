@@ -51,6 +51,36 @@ describe("resume PDF export", () => {
     expect(pageContent).not.toContain("/Image");
   });
 
+  it("prints bold keywords in the bold face and never prints the marks", async () => {
+    const roots = [
+      node("header", { fullName: "Ada Lovelace", summary: "Engineer focused on **data quality** and tests." }),
+      node("section", { title: "Experience", sectionType: "experience" }, [
+        node("experience", { title: "Engineer", company: "Engines" }, [
+          node("bullet", { text: "Built **Kafka** streaming ingestion with sub-minute latency across many sources." }),
+        ]),
+      ]),
+    ];
+    const pdf = await createResumePdf({
+      tree: { roots },
+      design: DESIGN_DEFAULTS,
+      resumeName: "Ada CV",
+      versionName: "Default",
+      isBaseVersion: true,
+    });
+    const pageContent = (pdf.internal.pages as unknown as string[][])[1].join("\n");
+
+    expect(pageContent).toContain("Kafka");
+    expect(pageContent).toContain("data quality");
+    expect(pageContent).toContain("streaming ingestion");
+    expect(pageContent).not.toContain("**");
+    // The keyword is drawn in a different font resource than the words around it.
+    const kafka = pageContent.match(/\/(F\d+) [\d.]+ Tf[^/]*?\(Kafka\)/);
+    const rest = pageContent.match(/\/(F\d+) [\d.]+ Tf[^/]*?\( streaming ingestion/);
+    expect(kafka?.[1]).toBeTruthy();
+    expect(rest?.[1]).toBeTruthy();
+    expect(kafka?.[1]).not.toBe(rest?.[1]);
+  });
+
   it("creates a Modern PDF with a real two-column content stream", async () => {
     const roots = [
       node("header", { fullName: "Grace Hopper", email: "grace@example.com" }),

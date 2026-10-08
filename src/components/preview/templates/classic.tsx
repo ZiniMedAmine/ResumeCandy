@@ -9,6 +9,7 @@ import {
   EntryHead,
   Marked,
   PaperAnchor,
+  RichText,
   ResumeHeader,
   ResumeLink,
   SectionColumns,
@@ -126,7 +127,11 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
               <ResumeLink href={s(d.url)} />
             </p>
           )}
-          {s(d.description) && <p className="text-[0.95em] text-zinc-700">{s(d.description)}</p>}
+          {s(d.description) && (
+            <p className="text-[0.95em] text-zinc-700">
+              <RichText value={s(d.description)} />
+            </p>
+          )}
           <BulletList nodes={node.children} markCustomized={markCustomized} />
         </Marked>
       );
@@ -205,7 +210,7 @@ function Item({ node, markCustomized }: { node: ResolvedNode; markCustomized: bo
           dir="auto"
           className="text-[0.95em] leading-[inherit] text-zinc-700"
         >
-          {s(d.text)}
+          <RichText value={s(d.text)} />
         </Marked>
       );
 

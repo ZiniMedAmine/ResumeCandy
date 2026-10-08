@@ -117,6 +117,56 @@ phrases such as "distributed systems", keeping tech spellings like `c++`,
 `c#`, `ci/cd`) and shows which this version mentions and which it misses.
 Everything lives in `src/lib/ats.ts` as pure functions with unit tests.
 
+## Tailor to a job (Claude)
+
+**Master profile** (sidebar → Master profile) is one markdown document per
+account holding everything you have done: every role with all its bullets and
+numbers, projects, education, skills, certifications, languages, work permit.
+It is never printed; it is the only source tailored resumes may draw facts
+from. Import an existing file (`.md` / `.txt`) or write it in place; it
+autosaves.
+
+**Tailor to a job** (sidebar or dashboard) takes a pasted job posting and:
+
+1. **Checks your fit.** Claude lists the posting's requirements (hard, nice to
+   have, soft) and marks each *match / partial / learnable / gap* with the
+   evidence from your profile. The score and verdict are computed in code
+   (`src/lib/ai/assessment.ts`): hard-requirement score ≥ 80% → apply,
+   ≥ 65% → borderline, below → not advised. The check is never a gate — you
+   can generate anyway, or skip it.
+2. **Writes the resume** in the template and language you pick (or the
+   posting's language): a new resume whose Default version carries the job
+   description and posting link, so the ATS panel's keyword check works on it
+   at once. Facts come only from the profile; the posting's keywords are
+   **bolded** in the summary, bullets and project descriptions.
+3. **Writes a cover letter** (optional), stored on the version and editable
+   in *Job & links*, with Copy and PDF export in the resume's fonts. Any
+   version with a job description can get one from that panel too.
+4. **Fits it on one page.** On first open the editor tightens font size, line
+   height, spacing and margins a step at a time until the exported PDF is one
+   page (`src/lib/pdf/fit.ts`), and says so when even the tightest comfortable
+   setting needs more — then cut content instead. The **Fit to 1 page** button
+   in the top bar does the same for any version.
+
+**Bold text.** Anywhere in a summary, bullet, project description or
+paragraph, `**term**` prints in bold in the preview and the PDF, and the marks
+never reach the text layer an ATS reads (`src/lib/rich-text.ts`).
+
+**No API key.** Claude is called through the Claude Code CLI on the machine
+running ResumeCandy (`src/lib/ai/claude.ts`), so it runs on your Claude
+subscription: install Claude Code, run `claude` once to sign in, and that's
+it. Each call is headless and single-turn, with tools, settings and sessions
+off and the reply forced into a JSON Schema. Optional `.env.local` settings:
+
+```bash
+CLAUDE_CLI_PATH=/path/to/claude   # when `claude` is not on the server's PATH
+CLAUDE_MODEL=opus                 # default: sonnet
+```
+
+Because it uses the sign-in of whoever runs the server, this is for running
+ResumeCandy on your own machine. A deployment serving other people would need
+an Anthropic API key instead.
+
 ## Resume language (English · Français · العربية)
 
 The language a résumé is *written in* is one more design setting, so it layers
@@ -203,6 +253,8 @@ browser print dialog for its Default-version export.
 ```
 src/db/            schema (drizzle/SQLite), client + auto-migration, seed
 src/lib/resume/    the pure engine: resolve, patch, rank + unit tests
+src/lib/ai/        tailoring: Claude CLI bridge, prompts, fit scoring,
+                   tailored resume → node tree (+ tests)
 src/lib/           data loading, payload types, design settings,
                    pagination planner (+ tests), view/url
 src/app/actions/   server actions: content, versions, resumes

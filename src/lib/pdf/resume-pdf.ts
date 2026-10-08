@@ -5,6 +5,7 @@ import { displayUrl, headerContacts, urlHref, type HeaderContact } from "@/lib/c
 import { PAGE_FORMATS, formatResumeDate, isRtl, type DesignSettings, type FontId } from "@/lib/design";
 import { localeOf } from "@/lib/locale";
 import type { ResolvedNode } from "@/lib/resume/types";
+import { hasRichText, parseRichText, type TextRun } from "@/lib/rich-text";
 
 type PdfDocument = jsPDF;
 type PdfFormat = "a4" | "letter" | "legal";
@@ -107,6 +108,23 @@ export async function downloadResumePdf(input: ResumePdfInput): Promise<void> {
 
 /** Build a semantic PDF without triggering a browser download. */
 export async function createResumePdf(input: ResumePdfInput): Promise<PdfDocument> {
+  const { document, writer } = await openDocument(input, "Resume");
+  writer.render(input.tree.roots);
+  return document;
+}
+
+/**
+ * The cover letter as its own PDF, set in the résumé's fonts, colours and
+ * margins so the two read as one application.
+ */
+export async function downloadCoverLetterPdf(input: ResumePdfInput & { letter: string }): Promise<void> {
+  const { document, writer } = await openDocument(input, "Cover letter");
+  writer.renderLetter(headerOf(input.tree.roots), input.letter);
+  const name = documentName(input.resumeName, input.versionName, input.isBaseVersion);
+  await document.save(`${safeFileName(`${name} cover letter`)}.pdf`, { returnPromise: true });
+}
+
+async function openDocument(input: ResumePdfInput, subject: string) {
   const { jsPDF } = await import("jspdf");
   const page = PAGE_FORMATS[input.design.pageFormat];
   const document = new jsPDF({
@@ -120,7 +138,7 @@ export async function createResumePdf(input: ResumePdfInput): Promise<PdfDocumen
 
   document.setProperties({
     title: name,
-    subject: "Resume",
+    subject,
     author: header ? text(header.data.fullName) || undefined : undefined,
     keywords: "resume,curriculum vitae,CV",
   });
@@ -137,8 +155,7 @@ export async function createResumePdf(input: ResumePdfInput): Promise<PdfDocumen
     body: font,
     name: nameFont,
   });
-  writer.render(input.tree.roots);
-  return document;
+  return { document, writer };
 }
 
 async function registerPdfFont(document: PdfDocument, id: FontId | null): Promise<PdfFont> {
@@ -196,6 +213,9 @@ interface TextStyle {
   color: string;
   font?: PdfFont;
 }
+
+/** One wrapped line of text whose words may switch between weights. */
+type RichLine = TextRun[];
 
 /** Text colours, matching the preview's zinc palette. */
 const INK = "#18181b";
@@ -279,6 +299,31 @@ class PdfWriter {
     }
 
     this.footer(header);
+  }
+
+  /** A letter: the sender's name and details, a rule, then the paragraphs. */
+  renderLetter(header: ResolvedNode | undefined, letter: string) {
+    const flow: Flow = { x: this.marginX, width: this.width - this.marginX * 2, page: 1, y: this.top };
+    if (header) {
+      const d = header.data;
+      const nameStyle: TextStyle = { scale: 1.6, style: "bold", color: INK, font: this.fonts.name };
+      this.lines(flow, this.wrap(text(d.fullName), flow.width, nameStyle), nameStyle);
+      const details = [text(d.email), text(d.phone), text(d.location)].filter(Boolean).join("  ·  ");
+      const detailStyle: TextStyle = { scale: 0.9, style: "normal", color: MUTED };
+      this.lines(flow, this.wrap(details, flow.width, detailStyle), detailStyle);
+      flow.y += 0.9 * this.em();
+      this.on(flow);
+      this.doc.setDrawColor(this.accent);
+      this.doc.setLineWidth(0.3);
+      this.doc.line(this.mx(flow.x), flow.y, this.mx(flow.x + flow.width), flow.y);
+      flow.y += 1.6 * this.em();
+    }
+    const body: TextStyle = { scale: 1, style: "normal", color: BODY };
+    for (const paragraph of letter.split(/\n\s*\n/)) {
+      if (!paragraph.trim()) continue;
+      this.lines(flow, this.wrap(paragraph.trim(), flow.width, body), body);
+      flow.y += 0.8 * this.em();
+    }
   }
 
   /** The thin divider down the sidebar's reading-start edge, on every page it spans. */
@@ -448,6 +493,77 @@ class PdfWriter {
   }
 
   /**
+   * Wraps text that carries `**bold**` runs. Each word is measured in the
+   * weight it prints at, so a bold keyword takes its real width and a line
+   * never overflows because its widest words happened to be the bold ones.
+   */
+  private wrapRich(value: string, width: number, t: TextStyle): RichLine[] {
+    const max = Math.max(1, width);
+    const bold: TextStyle = { ...t, style: "bold" };
+    const lines: RichLine[] = [];
+    let line: RichLine = [];
+    let lineWidth = 0;
+    const append = (text: string, isBold: boolean) => {
+      const last = line[line.length - 1];
+      if (last && last.bold === isBold) last.text += text;
+      else line.push({ text, bold: isBold });
+    };
+    const flush = () => {
+      const last = line[line.length - 1];
+      if (last) last.text = last.text.replace(/\s+$/, "");
+      lines.push(line.filter((r) => r.text));
+      line = [];
+      lineWidth = 0;
+    };
+    for (const run of parseRichText(value)) {
+      for (const token of run.text.split(/(\n|[^\S\n]+)/)) {
+        if (!token) continue;
+        if (token === "\n") {
+          flush();
+          continue;
+        }
+        const space = /^\s+$/.test(token);
+        if (space && line.length === 0) continue;
+        const w = this.measure(token, run.bold ? bold : t);
+        if (!space && lineWidth + w > max && line.length > 0) flush();
+        append(token, run.bold);
+        lineWidth += w;
+      }
+    }
+    if (line.length) flush();
+    return lines;
+  }
+
+  /** Writes rich lines down the flow, each run in its own weight. */
+  private richLines(flow: Flow, lines: RichLine[], t: TextStyle, opts: { x?: number } = {}) {
+    const x = opts.x ?? flow.x;
+    const lh = this.lh(t.scale);
+    for (const line of lines) {
+      this.ensure(flow, lh);
+      this.on(flow);
+      const base = this.baseline(flow.y, t.scale);
+      let cursor = x;
+      for (const run of line) {
+        const style: TextStyle = run.bold ? { ...t, style: "bold", color: INK } : t;
+        this.setText(style);
+        this.put(run.text, cursor, base);
+        cursor += this.doc.getTextWidth(run.text);
+      }
+      flow.y += lh;
+    }
+  }
+
+  /**
+   * Body text that may carry `**bold**` keywords. Unmarked text keeps the
+   * plain path, so nothing about an ordinary résumé's output changes.
+   */
+  private body(flow: Flow, value: string, t: TextStyle, opts: { x?: number; width?: number } = {}) {
+    const width = opts.width ?? flow.width - ((opts.x ?? flow.x) - flow.x);
+    if (hasRichText(value)) this.richLines(flow, this.wrapRich(value, width, t), t, opts);
+    else this.lines(flow, this.wrap(value, width, t), t, opts);
+  }
+
+  /**
    * A clickable area over text that has already been drawn. Underlined when
    * the Link Styling settings ask for it; the colour is the caller's.
    */
@@ -570,11 +686,7 @@ class PdfWriter {
     const summary = text(d.summary);
     if (summary) {
       flow.y += 0.8 * this.em();
-      this.lines(flow, this.wrap(summary, flow.width, { scale: 0.95, style: "normal", color: BODY }), {
-        scale: 0.95,
-        style: "normal",
-        color: BODY,
-      });
+      this.body(flow, summary, { scale: 0.95, style: "normal", color: BODY });
     }
 
     // Modern's short accent rule under the header.
@@ -1033,8 +1145,7 @@ class PdfWriter {
 
   private paragraph(flow: Flow, value: string, scale: number, color = BODY) {
     if (!value) return;
-    const style: TextStyle = { scale, style: "normal", color };
-    this.lines(flow, this.wrap(value, flow.width, style), style);
+    this.body(flow, value, { scale, style: "normal", color });
   }
 
   /* -------------------------------- bullets -------------------------------- */
@@ -1047,10 +1158,9 @@ class PdfWriter {
     const indent = 0.55 * this.em() + 1.2;
     items.forEach((b, i) => {
       if (i > 0) flow.y += 0.15 * this.em();
-      const lines = this.wrap(text(b.data.text), flow.width - indent, style);
       this.ensure(flow, this.lh(0.95));
       this.marker(flow.x, flow.y, flow.page);
-      this.lines(flow, lines, style, { x: flow.x + indent, width: flow.width - indent });
+      this.body(flow, text(b.data.text), style, { x: flow.x + indent, width: flow.width - indent });
     });
   }
 

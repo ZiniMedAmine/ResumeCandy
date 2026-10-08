@@ -3,12 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
-import { FileIcon, LayersIcon, SignOutIcon, UserIcon } from "@/components/ui/icons";
+import {
+  BookOpenIcon,
+  FileIcon,
+  LayersIcon,
+  SignOutIcon,
+  SparkleIcon,
+  UserIcon,
+} from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useT } from "@/lib/i18n/provider";
 
 const NAV = [
   { href: "/", key: "resumes", icon: FileIcon },
+  { href: "/tailor", key: "tailor", icon: SparkleIcon },
+  { href: "/profile", key: "profile", icon: BookOpenIcon },
   { href: "/account", key: "account", icon: UserIcon },
 ] as const;
 
